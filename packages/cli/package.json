@@ -1,0 +1,17 @@
+{
+  "name": "@stark/cli",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "stark": "./bin/stark.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stark/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
