@@ -1,0 +1,20 @@
+# OMC state (session-specific, not versioned)
+.omc/state/
+.omc/notepad.md
+.omc/project-memory.json
+.omc/logs/
+
+# Node
+node_modules/
+dist/
+.turbo/
+
+# Bun
+bun.lockb
+
+# Stark runtime data
+.stark/
+
+# OS
+.DS_Store
+Thumbs.db
