@@ -40,7 +40,22 @@ export interface ScoringConfig {
   maxFocusStocks: MaxFocusStocks;
 }
 
+export interface AngelOneConfig {
+  apiKey?: string;
+  clientId?: string;
+}
+
+export interface LLMConfig {
+  geminiKey?: string;
+  perplexityKey?: string;
+  enabled: boolean;
+  cacheResponses: boolean;
+  cacheTtlHours: number;
+}
+
 export interface StarkConfig {
+  angelOne?: AngelOneConfig;
+  llm?: LLMConfig;
   emThresholds: EMThresholdsConfig;
   risk: RiskConfig;
   sheetId: string;

@@ -45,7 +45,7 @@ function printVersion(): void {
   console.log(`stark v${VERSION}`);
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
@@ -59,6 +59,7 @@ function main(): void {
   }
 
   const command = args[0];
+  const commandArgs = args.slice(1);
   const known = COMMANDS.find((c) => c.name === command);
 
   if (!known) {
@@ -67,10 +68,30 @@ function main(): void {
     process.exit(1);
   }
 
-  // Placeholder: each command will be implemented in subsequent tasks
-  console.log(`Command "${command}" is not yet implemented.`);
-  console.log(`Run \`stark --help\` for available commands.`);
-  process.exit(0);
+  switch (command) {
+    case "auth": {
+      const { authCommand } = await import("../src/commands/auth.js");
+      await authCommand(commandArgs);
+      break;
+    }
+    case "import": {
+      const { importCommand } = await import("../src/commands/import-cmd.js");
+      await importCommand(commandArgs);
+      break;
+    }
+    case "status": {
+      const { statusCommand } = await import("../src/commands/status.js");
+      await statusCommand(commandArgs);
+      break;
+    }
+    default:
+      console.log(`Command "${command}" is not yet implemented.`);
+      console.log(`Run \`stark --help\` for available commands.`);
+      process.exit(0);
+  }
 }
 
-main();
+main().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exit(1);
+});
