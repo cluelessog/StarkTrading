@@ -2,10 +2,11 @@ export type ScoreStatus = 'PARTIAL' | 'COMPLETE';
 
 export interface FactorResult {
   factorId: string;
-  value: number;
-  maxValue: number;
+  factorName: string;
+  score: number;
+  maxScore: number;
   dataSource: string;
-  reasoning?: string;
+  reasoning: string;
 }
 
 export interface ScoreBreakdown {

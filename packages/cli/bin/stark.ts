@@ -84,6 +84,11 @@ async function main(): Promise<void> {
       await statusCommand(commandArgs);
       break;
     }
+    case "score": {
+      const { scoreCommand } = await import("../src/commands/score.js");
+      await scoreCommand(commandArgs);
+      break;
+    }
     default:
       console.log(`Command "${command}" is not yet implemented.`);
       console.log(`Run \`stark --help\` for available commands.`);
