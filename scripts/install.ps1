@@ -35,20 +35,37 @@ Write-Host ""
 Write-Host "[..] Installing dependencies..." -ForegroundColor Yellow
 Push-Location $StarkDir
 try {
-    # Remove Linux-generated lockfile (different path separators / symlink format)
+    # Clean stale state that conflicts between Linux/Windows
     $lockFile = Join-Path $StarkDir "bun.lock"
     if (Test-Path $lockFile) {
         Remove-Item $lockFile -Force
-        Write-Host "[..] Removed stale lockfile (will regenerate for Windows)" -ForegroundColor Yellow
+        Write-Host "[..] Removed stale lockfile" -ForegroundColor Yellow
     }
 
-    # --backend=copyfile avoids symlinks which require admin on Windows
+    # Remove existing node_modules to avoid EISDIR conflicts
+    # (stale directories where Bun needs to create workspace links)
+    foreach ($nmDir in @(
+        (Join-Path $StarkDir "node_modules"),
+        (Join-Path $StarkDir "packages\core\node_modules"),
+        (Join-Path $StarkDir "packages\cli\node_modules")
+    )) {
+        if (Test-Path $nmDir) {
+            Remove-Item $nmDir -Recurse -Force
+        }
+    }
+
     $prevPref = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    & bun install --backend=copyfile 2>&1 | Out-Host
+    & bun install 2>&1 | Out-Host
     $bunExit = $LASTEXITCODE
     $ErrorActionPreference = $prevPref
     if ($bunExit -ne 0) {
+        Write-Host ""
+        Write-Host "[!!] bun install failed. This is usually a symlink permissions issue on Windows." -ForegroundColor Red
+        Write-Host "     Fix: Enable Developer Mode in Windows Settings > For Developers" -ForegroundColor Yellow
+        Write-Host "     Then re-run this script." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "     Alternatively, run this script as Administrator." -ForegroundColor Yellow
         throw "bun install failed with exit code $bunExit"
     }
     Write-Host "[OK] Dependencies installed." -ForegroundColor Green
