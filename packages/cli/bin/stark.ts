@@ -89,6 +89,31 @@ async function main(): Promise<void> {
       await scoreCommand(commandArgs);
       break;
     }
+    case "review": {
+      const { reviewCommand } = await import("../src/commands/review.js");
+      await reviewCommand(commandArgs);
+      break;
+    }
+    case "market": {
+      const { marketCommand } = await import("../src/commands/market.js");
+      await marketCommand(commandArgs);
+      break;
+    }
+    case "focus": {
+      const { focusCommand } = await import("../src/commands/focus.js");
+      await focusCommand(commandArgs);
+      break;
+    }
+    case "evening": {
+      const { eveningCommand } = await import("../src/commands/evening.js");
+      await eveningCommand(commandArgs);
+      break;
+    }
+    case "morning": {
+      const { morningCommand } = await import("../src/commands/morning.js");
+      await morningCommand(commandArgs);
+      break;
+    }
     default:
       console.log(`Command "${command}" is not yet implemented.`);
       console.log(`Run \`stark --help\` for available commands.`);

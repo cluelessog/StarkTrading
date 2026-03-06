@@ -13,16 +13,16 @@ function createTestAdapter() {
 
   return {
     execute(sql: string, params: unknown[] = []) {
-      db.prepare(sql).run(...params);
+      db.prepare(sql).run(...(params as [string]));
     },
     execMulti(sql: string) {
       db.exec(sql);
     },
     query<T>(sql: string, params: unknown[] = []): T[] {
-      return db.prepare(sql).all(...params) as T[];
+      return db.prepare(sql).all(...(params as [string])) as T[];
     },
     queryOne<T>(sql: string, params: unknown[] = []): T | null {
-      return (db.prepare(sql).get(...params) as T | undefined) ?? null;
+      return (db.prepare(sql).get(...(params as [string])) as T | undefined) ?? null;
     },
     transaction<T>(fn: () => T): T {
       return db.transaction(fn)() as T;

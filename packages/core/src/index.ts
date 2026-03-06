@@ -13,3 +13,4 @@ export * from './log/index.js';
 export * from './config/index.js';
 export * from './api/index.js';
 export * from './scoring/index.js';
+export * from './mbi/index.js';
