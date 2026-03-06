@@ -36,11 +36,19 @@ Write-Host "[..] Installing dependencies..." -ForegroundColor Yellow
 Push-Location $StarkDir
 try {
     $prevPref = $ErrorActionPreference
-    $ErrorActionPreference = "SilentlyContinue"
-    & bun install 2>&1 | ForEach-Object { if ($_ -is [string]) { Write-Host $_ } }
+    $ErrorActionPreference = "Continue"
+    & bun install 2>&1 | Out-Host
+    $bunExit = $LASTEXITCODE
     $ErrorActionPreference = $prevPref
-    if ($LASTEXITCODE -ne 0) {
-        throw "bun install failed with exit code $LASTEXITCODE"
+    if ($bunExit -ne 0) {
+        Write-Host "[..] Retrying without lockfile..." -ForegroundColor Yellow
+        $ErrorActionPreference = "Continue"
+        & bun install --no-frozen-lockfile 2>&1 | Out-Host
+        $bunExit = $LASTEXITCODE
+        $ErrorActionPreference = $prevPref
+        if ($bunExit -ne 0) {
+            throw "bun install failed with exit code $bunExit"
+        }
     }
     Write-Host "[OK] Dependencies installed." -ForegroundColor Green
 } finally {
