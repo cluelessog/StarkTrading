@@ -82,6 +82,31 @@ interface MBIDailyRow {
   data_freshness: 'fresh' | 'stale';
 }
 
+interface TradeJournalRow {
+  id: number;
+  symbol: string;
+  trade_type: 'swing' | 'intraday';
+  entry_date: string;
+  entry_price: number;
+  shares: number;
+  stop_price: number | null;
+  risk_amount: number | null;
+  exit_date: string | null;
+  exit_price: number | null;
+  exit_reason: string | null;
+  pnl: number | null;
+  r_multiple: number | null;
+  hold_days: number | null;
+  score_at_entry: number | null;
+  score_breakdown_json: string | null;
+  market_regime_at_entry: string | null;
+  sector_at_entry: string | null;
+  conviction: string | null;
+  override_count: number;
+  status: 'OPEN' | 'CLOSED';
+  created_at: string;
+}
+
 interface ApiUsageRow {
   service: string;
   call_count: number;
@@ -114,6 +139,31 @@ export interface Position {
 }
 
 // Input shapes for insert methods
+export interface TradeJournalEntry {
+  id: number;
+  symbol: string;
+  tradeType: 'swing' | 'intraday';
+  entryDate: string;
+  entryPrice: number;
+  shares: number;
+  stopPrice: number | null;
+  riskAmount: number | null;
+  exitDate: string | null;
+  exitPrice: number | null;
+  exitReason: string | null;
+  pnl: number | null;
+  rMultiple: number | null;
+  holdDays: number | null;
+  scoreAtEntry: number | null;
+  scoreBreakdownJson: string | null;
+  marketRegimeAtEntry: string | null;
+  sectorAtEntry: string | null;
+  conviction: string | null;
+  overrideCount: number;
+  status: 'OPEN' | 'CLOSED';
+  createdAt: string;
+}
+
 export interface InsertWatchlistStockData {
   watchlistId: number;
   symbol: string;
@@ -275,6 +325,33 @@ function rowToMBIData(row: MBIDailyRow): MBIData {
     rawSourceJson: row.raw_source_json ?? undefined,
     fetchedAt: row.fetched_at,
     dataFreshness: row.data_freshness,
+  };
+}
+
+function rowToTradeJournal(row: TradeJournalRow): TradeJournalEntry {
+  return {
+    id: row.id,
+    symbol: row.symbol,
+    tradeType: row.trade_type,
+    entryDate: row.entry_date,
+    entryPrice: row.entry_price,
+    shares: row.shares,
+    stopPrice: row.stop_price,
+    riskAmount: row.risk_amount,
+    exitDate: row.exit_date,
+    exitPrice: row.exit_price,
+    exitReason: row.exit_reason,
+    pnl: row.pnl,
+    rMultiple: row.r_multiple,
+    holdDays: row.hold_days,
+    scoreAtEntry: row.score_at_entry,
+    scoreBreakdownJson: row.score_breakdown_json,
+    marketRegimeAtEntry: row.market_regime_at_entry,
+    sectorAtEntry: row.sector_at_entry,
+    conviction: row.conviction,
+    overrideCount: row.override_count,
+    status: row.status,
+    createdAt: row.created_at,
   };
 }
 
@@ -594,6 +671,51 @@ export class Queries {
         id,
       ]
     );
+  }
+
+  getTradeById(id: number): TradeJournalEntry | null {
+    const row = this.db.queryOne<TradeJournalRow>(
+      `SELECT * FROM trade_journal WHERE id = ?`,
+      [id]
+    );
+    return row ? rowToTradeJournal(row) : null;
+  }
+
+  getOpenTrades(): TradeJournalEntry[] {
+    const rows = this.db.query<TradeJournalRow>(
+      `SELECT * FROM trade_journal WHERE status = 'OPEN' ORDER BY entry_date ASC`
+    );
+    return rows.map(rowToTradeJournal);
+  }
+
+  getClosedTrades(): TradeJournalEntry[] {
+    const rows = this.db.query<TradeJournalRow>(
+      `SELECT * FROM trade_journal WHERE status = 'CLOSED' ORDER BY exit_date DESC`
+    );
+    return rows.map(rowToTradeJournal);
+  }
+
+  getAllTrades(): TradeJournalEntry[] {
+    const rows = this.db.query<TradeJournalRow>(
+      `SELECT * FROM trade_journal ORDER BY entry_date DESC`
+    );
+    return rows.map(rowToTradeJournal);
+  }
+
+  getOpenTradeForSymbol(symbol: string): TradeJournalEntry | null {
+    const row = this.db.queryOne<TradeJournalRow>(
+      `SELECT * FROM trade_journal WHERE symbol = ? AND status = 'OPEN' LIMIT 1`,
+      [symbol]
+    );
+    return row ? rowToTradeJournal(row) : null;
+  }
+
+  getLatestScoreForSymbol(symbol: string): StockScore | null {
+    const row = this.db.queryOne<StockScoreRow>(
+      `SELECT * FROM stock_scores WHERE symbol = ? ORDER BY updated_at DESC LIMIT 1`,
+      [symbol]
+    );
+    return row ? rowToStockScore(row) : null;
   }
 
   // --- Positions ---

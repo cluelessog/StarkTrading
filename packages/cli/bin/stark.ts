@@ -16,7 +16,8 @@ const COMMANDS = [
   { name: "exit",        description: "Log a trade exit" },
   { name: "trades",      description: "List and filter trades" },
   { name: "performance", description: "Show performance metrics and statistics" },
-  { name: "heat",        description: "Show heat map of trading activity" },
+  { name: "heat",        description: "Show portfolio heat (risk exposure)" },
+  { name: "evolve",      description: "Show scoring evolution and factor edges" },
   { name: "cron",        description: "Manage scheduled tasks and automation" },
 ];
 
@@ -112,6 +113,36 @@ async function main(): Promise<void> {
     case "morning": {
       const { morningCommand } = await import("../src/commands/morning.js");
       await morningCommand(commandArgs);
+      break;
+    }
+    case "entry": {
+      const { entryCommand } = await import("../src/commands/entry.js");
+      await entryCommand(commandArgs);
+      break;
+    }
+    case "exit": {
+      const { exitCommand } = await import("../src/commands/exit-cmd.js");
+      await exitCommand(commandArgs);
+      break;
+    }
+    case "trades": {
+      const { tradesCommand } = await import("../src/commands/trades.js");
+      await tradesCommand(commandArgs);
+      break;
+    }
+    case "heat": {
+      const { heatCommand } = await import("../src/commands/heat.js");
+      await heatCommand(commandArgs);
+      break;
+    }
+    case "performance": {
+      const { performanceCommand } = await import("../src/commands/performance.js");
+      await performanceCommand(commandArgs);
+      break;
+    }
+    case "evolve": {
+      const { evolveCommand } = await import("../src/commands/evolve.js");
+      await evolveCommand(commandArgs);
       break;
     }
     default:
