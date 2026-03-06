@@ -43,16 +43,26 @@ try {
     }
 
     # Remove existing node_modules to avoid EISDIR conflicts
-    # (stale directories where Bun needs to create workspace links)
+    # Use cmd rmdir which handles deep nested paths better on Windows
     foreach ($nmDir in @(
         (Join-Path $StarkDir "node_modules"),
         (Join-Path $StarkDir "packages\core\node_modules"),
         (Join-Path $StarkDir "packages\cli\node_modules")
     )) {
         if (Test-Path $nmDir) {
-            Remove-Item $nmDir -Recurse -Force
+            Write-Host "[..] Removing $nmDir ..." -ForegroundColor Yellow
+            & cmd /c "rmdir /s /q `"$nmDir`"" 2>$null
+            # Fallback if cmd fails
+            if (Test-Path $nmDir) {
+                Remove-Item $nmDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            if (Test-Path $nmDir) {
+                Write-Host "[!!] Could not fully remove $nmDir — delete it manually and retry" -ForegroundColor Red
+                throw "Failed to clean node_modules"
+            }
         }
     }
+    Write-Host "[OK] Clean slate for install." -ForegroundColor Green
 
     $prevPref = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
