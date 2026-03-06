@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
 import { join } from 'path';
 
 export interface EMThresholdsConfig {
@@ -64,7 +65,7 @@ export interface StarkConfig {
 }
 
 export function getStarkDir(): string {
-  const dir = join(process.env.HOME ?? '~', '.stark');
+  const dir = join(process.env.HOME ?? process.env.USERPROFILE ?? homedir(), '.stark');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;
 }
