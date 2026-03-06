@@ -35,8 +35,13 @@ Write-Host ""
 Write-Host "[..] Installing dependencies..." -ForegroundColor Yellow
 Push-Location $StarkDir
 try {
-    & bun install 2>$null
-    if ($LASTEXITCODE -ne 0) { & bun install }
+    $prevPref = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    & bun install 2>&1 | ForEach-Object { if ($_ -is [string]) { Write-Host $_ } }
+    $ErrorActionPreference = $prevPref
+    if ($LASTEXITCODE -ne 0) {
+        throw "bun install failed with exit code $LASTEXITCODE"
+    }
     Write-Host "[OK] Dependencies installed." -ForegroundColor Green
 } finally {
     Pop-Location
