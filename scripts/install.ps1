@@ -35,20 +35,21 @@ Write-Host ""
 Write-Host "[..] Installing dependencies..." -ForegroundColor Yellow
 Push-Location $StarkDir
 try {
+    # Remove Linux-generated lockfile (different path separators / symlink format)
+    $lockFile = Join-Path $StarkDir "bun.lock"
+    if (Test-Path $lockFile) {
+        Remove-Item $lockFile -Force
+        Write-Host "[..] Removed stale lockfile (will regenerate for Windows)" -ForegroundColor Yellow
+    }
+
+    # --backend=copyfile avoids symlinks which require admin on Windows
     $prevPref = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    & bun install 2>&1 | Out-Host
+    & bun install --backend=copyfile 2>&1 | Out-Host
     $bunExit = $LASTEXITCODE
     $ErrorActionPreference = $prevPref
     if ($bunExit -ne 0) {
-        Write-Host "[..] Retrying without lockfile..." -ForegroundColor Yellow
-        $ErrorActionPreference = "Continue"
-        & bun install --no-frozen-lockfile 2>&1 | Out-Host
-        $bunExit = $LASTEXITCODE
-        $ErrorActionPreference = $prevPref
-        if ($bunExit -ne 0) {
-            throw "bun install failed with exit code $bunExit"
-        }
+        throw "bun install failed with exit code $bunExit"
     }
     Write-Host "[OK] Dependencies installed." -ForegroundColor Green
 } finally {
