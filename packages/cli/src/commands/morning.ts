@@ -1,10 +1,7 @@
-import { createDatabase } from '@stark/core/db/index.js';
-import { MockProvider } from '@stark/core/api/mock-provider.js';
-import { loadConfig } from '@stark/core/config/index.js';
+import { createCommandContext } from '../utils/command-context.js';
 
 export async function morningCommand(_args: string[]): Promise<void> {
-  const config = loadConfig();
-  const { db } = createDatabase();
+  const { db, provider, llmService } = await createCommandContext();
 
   console.log('=== Morning Workflow ===\n');
 
@@ -26,20 +23,27 @@ export async function morningCommand(_args: string[]): Promise<void> {
 
   console.log(`Checking ${focusStocks.length} focus stocks...\n`);
 
-  // 2. Check overnight gaps
-  let provider;
-  try {
-    if (config.angelOne?.apiKey) {
-      const { AngelOneProvider } = await import('@stark/core/api/angel-one.js');
-      const p = new AngelOneProvider(config.angelOne.apiKey);
-      if (p.isAuthenticated()) provider = p;
+  // 2. Overnight news via Perplexity (if LLM enabled)
+  if (llmService) {
+    const symbolList = focusStocks.map((s) => s.symbol).join(', ');
+    try {
+      const config = { enabled: true, perplexityKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
+      const news = await llmService.research(
+        `What are the overnight developments and pre-market news for these NSE India stocks: ${symbolList}? Focus on earnings, corporate actions, regulatory changes, or major events from the last 12 hours. Be brief.`,
+        config,
+      );
+      console.log('--- Overnight News ---');
+      console.log(news.answer);
+      if (news.sources.length > 0) {
+        console.log(`Sources: ${news.sources.join(', ')}`);
+      }
+      console.log('');
+    } catch {
+      console.log('(Overnight news unavailable)\n');
     }
-  } catch { /* fall through */ }
-
-  if (!provider) {
-    provider = new MockProvider();
   }
 
+  // 3. Check quotes and gaps
   for (const stock of focusStocks) {
     try {
       const quote = await provider.fetchQuote(stock.symbol, stock.token);

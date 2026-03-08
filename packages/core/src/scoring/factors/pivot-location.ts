@@ -86,14 +86,16 @@ export async function pivotLocation(input: FactorInput): Promise<FactorOutput> {
 // Helpers
 // ---------------------------------------------------------------------------
 
-interface BaseResult {
+export interface BaseResult {
   length: number;
+  startIdx: number;
+  endIdx: number;
   channelHigh: number;
   channelLow: number;
   atrCompression: number;
 }
 
-function computeATR(bars: OHLCVBar[], period: number): number[] {
+export function computeATR(bars: OHLCVBar[], period: number): number[] {
   const trs: number[] = [];
 
   for (let i = 0; i < bars.length; i++) {
@@ -125,9 +127,10 @@ function computeATR(bars: OHLCVBar[], period: number): number[] {
   return atrs;
 }
 
-function findBase(
+export function findBase(
   bars: OHLCVBar[],
   atrs: number[],
+  maxDays = 100,
 ): BaseResult | null {
   // Look for consolidation: scan backwards from recent
   // Try different start points for the consolidation
@@ -138,7 +141,7 @@ function findBase(
     // Extend the base from startIdx forward
     for (
       let endIdx = startIdx + 19; // min 20 days
-      endIdx < Math.min(startIdx + 100, bars.length);
+      endIdx < Math.min(startIdx + maxDays, bars.length);
       endIdx++
     ) {
       const endATR = atrs[endIdx];
@@ -165,6 +168,8 @@ function findBase(
 
       return {
         length: endIdx - startIdx + 1,
+        startIdx,
+        endIdx,
         channelHigh,
         channelLow,
         atrCompression: compression,

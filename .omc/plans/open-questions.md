@@ -81,3 +81,43 @@
 - [ ] Is the `openalgo-node` SDK published on npm with stable releases? -- maturity of the Node.js SDK affects adoption feasibility; currently GitHub-only with unknown maintenance status
 - [ ] If user ever wants to switch from Angel One to another broker (Zerodha, Groww, etc.), does OpenAlgo become the preferred path or should Stark write a new `DataProvider` implementation directly? -- depends on OpenAlgo's reliability and the target broker's API quality
 - [ ] Does the user have interest in using OpenAlgo's MCP server for AI-assisted trading analysis outside of Stark (e.g., via Claude Desktop or Cursor)? -- OpenAlgo MCP could be valuable as a standalone tool even if not integrated into Stark's data pipeline
+
+## stark-automation - 2026-03-07
+
+### OPEN -- Security
+
+- [ ] **TOTP seed storage security** -- The TOTP seed is stored in plaintext in `~/.stark/config.json`. Should we add optional encryption (e.g., OS keychain integration via `keytar` or `secret-tool`) in a future iteration? Current plan defers this to a follow-up.
+- [ ] **Angel One password storage** -- Similar to TOTP seed, the Angel One password needs to be stored for auto-auth. Same security considerations. Both are deferred to the same encryption follow-up.
+
+### OPEN -- Platform & Infrastructure
+
+- [ ] **WSL2 fs.watch reliability** -- Bun's `fs.watch()` may not reliably detect changes on Windows-mounted paths (`/mnt/c/...`) from within WSL2. If the user's TradingView export directory is on the Windows filesystem, polling fallback may be needed. Needs empirical testing during implementation.
+- [ ] **Angel One refresh token behavior** -- The current `isAuthenticated()` check is date-based (same calendar day = valid). Does Angel One support silent token refresh via the refresh token, or is a full TOTP re-auth always required? This affects whether we need TOTP generation at all for mid-day session recovery.
+- [ ] **Daemon process management** -- For v1, the daemon forks itself into background. Should we provide a systemd unit file or PM2 ecosystem config as an optional install step for production reliability?
+- [ ] **Notification sound** -- The config includes `notifications.sound` but `notify-send` does not directly support sound. Should we use `paplay`/`aplay` to play a sound file, or rely on the desktop environment's notification sound settings?
+
+### OPEN -- Behavior
+
+- [ ] **Multiple CSV detection** -- If the user drops multiple CSVs at once (e.g., separate Priority 0 and Priority 1 exports), should the watcher batch them into a single import+scoring run, or process them sequentially? Current plan processes sequentially with debouncing.
+- [ ] **EM thresholds in automation context** -- Are the EM thresholds (25/15/12/9.5) validated for automated use, or do they assume human judgment in borderline cases? Automation will apply them mechanically.
+
+## stark-intelligent-automation - 2026-03-07
+
+### OPEN -- LLM & API
+
+- [ ] **Gemini model selection** -- Which Gemini model for OHLCV analysis: gemini-2.0-flash (faster, cheaper) vs gemini-2.0-pro (more accurate)? Affects LLM cost per scoring session and response quality for linearity/AOI/pivot-cutter assessment.
+- [ ] **Perplexity model selection** -- Perplexity offers `sonar` (fast) and `sonar-pro` (deeper research). Which to default to for EP catalyst research? Affects research quality vs cost.
+- [ ] **LLM cost budget per session** -- A 20-stock evening run with 3 LLM factors each = ~60 Gemini calls + 20 Perplexity calls. Should there be a daily/session cost cap beyond caching? Need to confirm acceptable cost per run.
+- [ ] **LLM prompt versioning** -- When LLM prompts are improved (e.g., better linearity assessment wording), cached responses from old prompts become stale. Should the cache key include a prompt version hash, or is TTL-based invalidation sufficient?
+
+### OPEN -- Security
+
+- [ ] **TOTP secret storage security** -- The plan stores `totpSecret` in `~/.stark/config.json` as plaintext. Should this use OS keychain (keytar/secret-tool) or file-level encryption? Plaintext is simpler but less secure. Affects Step 1 (SessionManager).
+- [ ] **Angel One password for auto-auth** -- Full auto-auth requires storing the Angel One password alongside the TOTP secret. Same security considerations as TOTP secret storage.
+
+### OPEN -- Data & Scoring
+
+- [ ] **75-minute intraday bars for LLM factors** -- Some factors (AOI, pivot cutter) might produce better results with 75-minute bars in addition to daily. Should `FactorInput` include an optional `intradayBars` field, or is daily-only sufficient for initial implementation?
+- [ ] **Broker portfolio sync API** -- Step 5 stubs `stark import --broker` for fetching positions from Angel One portfolio. The Angel One Smart API may require additional endpoints (portfolio/holdings) not currently implemented in `AngelOneProvider`. Needs API documentation review before implementation.
+- [ ] **Review command naming** -- With LLM scoring all 13 factors, the `review` command becomes override-only. Should it be renamed to `stark override` for clarity, or keep `stark review` for backward compatibility?
+- [ ] **LLM factor batching** -- Should linearity, pivot-cutter, and AOI be sent to Gemini as a single prompt (1 API call per stock, lower cost) or as 3 separate prompts (cleaner separation, easier caching per factor)? Single prompt is ~3x cheaper but harder to cache granularly.

@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, setSystemTime } from 'bun:test';
 import { OHLCVCache } from '../src/cache/ohlcv-cache.js';
 import type { OHLCVBar } from '../src/models/intervals.js';
 
 afterEach(() => {
-  vi.useRealTimers();
+  setSystemTime();
 });
 
 function makeQueries(meta?: { fetchedAt: string }) {
@@ -17,8 +17,7 @@ function makeQueries(meta?: { fetchedAt: string }) {
 describe('OHLCVCache.isFresh', () => {
   it('returns true when fetchedAt is after today 15:30 IST (10:00 UTC)', () => {
     // Simulate "now" as 2026-03-05 11:00 UTC (which is IST 16:30, after market close)
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-05T11:00:00.000Z'));
+    setSystemTime(new Date('2026-03-05T11:00:00.000Z'));
 
     const cache = new OHLCVCache(makeQueries());
     // fetchedAt is 10:30 UTC (15:30 + 1 hour = after close)
@@ -26,8 +25,7 @@ describe('OHLCVCache.isFresh', () => {
   });
 
   it('returns false when fetchedAt is before today 15:30 IST (10:00 UTC)', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-05T11:00:00.000Z'));
+    setSystemTime(new Date('2026-03-05T11:00:00.000Z'));
 
     const cache = new OHLCVCache(makeQueries());
     // fetchedAt is 09:00 UTC (before market close)
@@ -37,8 +35,7 @@ describe('OHLCVCache.isFresh', () => {
 
 describe('OHLCVCache.get', () => {
   it('returns data with stale freshness when no meta exists', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-05T11:00:00.000Z'));
+    setSystemTime(new Date('2026-03-05T11:00:00.000Z'));
 
     const cache = new OHLCVCache(makeQueries(undefined));
     const result = await cache.get('RELIANCE', '1d', '2026-03-01', '2026-03-05');

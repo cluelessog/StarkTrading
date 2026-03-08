@@ -70,6 +70,33 @@ export async function patternQuality(input: FactorInput): Promise<FactorOutput> 
   }
 
   if (hasPartialVCP) {
+    // Borderline VCP — use LLM for nuanced pattern assessment if available
+    if (input.llmService) {
+      try {
+        const config = { enabled: true, geminiKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
+        const result = await input.llmService.analyzeOHLCV(
+          `Analyze this stock chart for ${input.symbol}. The algorithmic analysis found a partial VCP (Volatility Contraction Pattern) with ${totalContractions} contractions and depths ${depths}. Does this chart show a valid VCP, Inverse Head & Shoulders (IH&S), or Cup & Handle pattern? Score 1 for a confirmed pattern, 0 for no valid pattern.`,
+          bars,
+          config,
+        );
+        const upgradedScore = result.score >= 0.5 ? 1.0 : 0;
+        return {
+          score: upgradedScore,
+          reasoning: `LLM assessment of partial VCP: ${result.reasoning}`,
+          dataSource: 'gemini',
+          metadata: {
+            contractionCount: totalContractions,
+            tighteningCount,
+            volumeDeclineCount,
+            depths: contractions.map((c) => c.range),
+            llmScore: result.score,
+          },
+        };
+      } catch {
+        // LLM failed, fall through to algorithmic score
+      }
+    }
+
     return {
       score: 0.5,
       reasoning: `Partial VCP: ${totalContractions} contractions, depths: ${depths}`,

@@ -2,6 +2,7 @@ import type { FactorType, FactorScoring, FactorSection } from '../models/factor.
 import type { OHLCVBar } from '../models/intervals.js';
 import type { DataProvider } from '../api/data-provider.js';
 import type { ScoringContext } from './context.js';
+import type { LLMService } from '../llm/index.js';
 
 // ---------------------------------------------------------------------------
 // Factor function signature
@@ -13,6 +14,7 @@ export interface FactorInput {
   dailyBars: OHLCVBar[];
   provider: DataProvider;
   context: ScoringContext;
+  llmService?: LLMService;
 }
 
 export interface FactorOutput {
@@ -39,7 +41,7 @@ export interface RegisteredFactor {
   description: string;
   guidanceText: string;
   enabled: boolean;
-  fn: FactorFunction | null; // null for discretionary (user-only)
+  fn: FactorFunction | null; // null until wired in engine
 }
 
 // ---------------------------------------------------------------------------
@@ -92,11 +94,11 @@ export class FactorRegistry {
 
   /**
    * Adjusted threshold when factors are disabled.
-   * Formula: adjusted = round(base × (enabledMax / 12.5) × 2) / 2
+   * Formula: adjusted = round(base × (enabledMax / 13) × 2) / 2
    */
   adjustedThreshold(baseThreshold: number): number {
     const enabledMax = this.maxScore();
-    return Math.round((baseThreshold * (enabledMax / 12.5)) * 2) / 2;
+    return Math.round((baseThreshold * (enabledMax / 13)) * 2) / 2;
   }
 }
 
@@ -220,15 +222,15 @@ export function createDefaultRegistry(): FactorRegistry {
     fn: null,
   });
 
-  // Discretionary factors (user-only, fn = null)
+  // Semi-discretionary factors (LLM-assisted, fn wired in engine.ts)
   registry.register({
     id: 'linearity',
     name: 'Linearity',
     section: 'Nature',
-    type: 'discretionary',
+    type: 'semi-discretionary',
     scoring: 'binary',
     maxPoints: 1,
-    dataSource: 'User assessment',
+    dataSource: 'OHLCV + optional Gemini',
     description: 'Prior uptrend is smooth and linear',
     guidanceText: 'The uptrend should look clean — smooth diagonal, not choppy or staircase',
     enabled: true,
@@ -239,10 +241,10 @@ export function createDefaultRegistry(): FactorRegistry {
     id: 'not_pivot_cutter',
     name: 'NOT Pivot Cutter',
     section: 'Readiness',
-    type: 'discretionary',
+    type: 'semi-discretionary',
     scoring: 'binary',
     maxPoints: 1,
-    dataSource: 'User assessment',
+    dataSource: 'OHLCV + optional Gemini',
     description: 'No history of false breakouts at pivot',
     guidanceText: 'Check: has this stock cut through its pivot and reversed recently? If yes, score 0',
     enabled: true,
@@ -253,10 +255,10 @@ export function createDefaultRegistry(): FactorRegistry {
     id: 'aoi',
     name: 'Area of Interest (AOI)',
     section: 'Readiness',
-    type: 'discretionary',
+    type: 'semi-discretionary',
     scoring: 'binary',
     maxPoints: 1,
-    dataSource: 'User assessment',
+    dataSource: 'OHLCV + optional Gemini',
     description: 'Price at a significant level of interest',
     guidanceText: 'Is the stock at a confluence zone — prior resistance, round number, moving average convergence?',
     enabled: true,
@@ -267,12 +269,12 @@ export function createDefaultRegistry(): FactorRegistry {
     id: 'hve_hvy',
     name: 'HVE / HVY',
     section: 'Readiness',
-    type: 'discretionary',
+    type: 'semi-discretionary',
     scoring: 'graduated',
     maxPoints: 1,
-    dataSource: 'User assessment',
-    description: 'High Volume Event or High Volume at Yesterday\'s level',
-    guidanceText: 'Recent high-volume activity at current levels signals institutional positioning',
+    dataSource: 'Angel One OHLCV',
+    description: 'Highest Volume Ever / Highest Volume Year in base',
+    guidanceText: 'HVE present → 1.0, HVY present → 0.5, neither → 0',
     enabled: true,
     fn: null,
   });
@@ -281,12 +283,12 @@ export function createDefaultRegistry(): FactorRegistry {
     id: 'hvq_2_5',
     name: '2.5 HVQ',
     section: 'Readiness',
-    type: 'discretionary',
+    type: 'semi-discretionary',
     scoring: 'binary',
-    maxPoints: 0.5,
-    dataSource: 'User assessment',
-    description: 'Volume ≥2.5× average on key day',
-    guidanceText: 'Was there a day with volume at least 2.5× the 50-day average? (Half point)',
+    maxPoints: 1,
+    dataSource: 'Angel One OHLCV',
+    description: 'Aggregated volume quality ≥2.5 HVQ-equivalents in base',
+    guidanceText: 'Sum weighted volume bars in base: HVE=2.0, HVY=1.5, HVQ=1.0. Score 1 if aggregate ≥2.5',
     enabled: true,
     fn: null,
   });

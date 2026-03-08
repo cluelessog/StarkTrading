@@ -34,7 +34,7 @@ function createTestAdapter() {
 }
 
 describe('ScoringEngine', () => {
-  it('scores a symbol and returns PARTIAL result', async () => {
+  it('scores a symbol and returns COMPLETE result', async () => {
     const provider = new MockProvider();
     const db = createTestAdapter();
     const engine = new ScoringEngine(provider, db);
@@ -43,9 +43,11 @@ describe('ScoringEngine', () => {
     const result = await engine.scoreSymbol('RELIANCE', '2885', ctx);
 
     expect(result.symbol).toBe('RELIANCE');
-    expect(result.status).toBe('PARTIAL');
-    expect(result.factors.length).toBe(8); // 8 algorithmic factors
+    expect(result.status).toBe('COMPLETE');
+    expect(result.factors.length).toBe(13); // 8 algorithmic + 5 semi-discretionary factors
     expect(result.algorithmicScore).toBeGreaterThanOrEqual(0);
+    expect(result.discretionaryScore).toBeGreaterThanOrEqual(0);
+    expect(result.totalScore).toBe(result.algorithmicScore + result.discretionaryScore);
     expect(result.maxPossibleScore).toBeGreaterThan(0);
 
     // Each factor has required fields
@@ -82,7 +84,7 @@ describe('ScoringEngine', () => {
     );
     expect(rows).toHaveLength(2);
     expect(rows[0].symbol).toBe('RELIANCE');
-    expect(rows[0].status).toBe('PARTIAL');
+    expect(rows[0].status).toBe('COMPLETE');
 
     db.close();
   });
@@ -96,26 +98,26 @@ describe('FactorRegistry', () => {
 
   it('separates algorithmic and discretionary factors', () => {
     const registry = createDefaultRegistry();
-    expect(registry.getAlgorithmic()).toHaveLength(8);
-    expect(registry.getDiscretionary()).toHaveLength(5);
+    expect(registry.getAlgorithmic()).toHaveLength(13);
+    expect(registry.getDiscretionary()).toHaveLength(0);
   });
 
   it('calculates max score from enabled factors', () => {
     const registry = createDefaultRegistry();
-    // 8 algorithmic (8 × 1) + 4 discretionary (4 × 1) + 1 HVQ (0.5) = 12.5
-    expect(registry.maxScore()).toBe(12.5);
+    // 8 algorithmic (8 × 1) + 5 discretionary (5 × 1) = 13
+    expect(registry.maxScore()).toBe(13);
   });
 
   it('adjusts threshold when factors disabled', () => {
     const registry = createDefaultRegistry();
-    // Disable 2 binary factors → max drops from 12.5 to 10.5
+    // Disable 2 binary factors → max drops from 13 to 11
     registry.disable('ep_catalyst');
     registry.disable('ipo_recency');
-    expect(registry.maxScore()).toBe(10.5);
+    expect(registry.maxScore()).toBe(11);
 
-    // BULL threshold 8.0 → adjusted = round(8.0 * (10.5/12.5) * 2) / 2
+    // BULL threshold 8.0 → adjusted = round(8.0 * (11/13) * 2) / 2
     const adjusted = registry.adjustedThreshold(8.0);
-    expect(adjusted).toBe(6.5);
+    expect(adjusted).toBe(7.0);
   });
 
   it('enables and disables factors', () => {

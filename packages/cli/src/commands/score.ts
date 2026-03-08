@@ -1,40 +1,19 @@
-import { ScoringEngine } from '@stark/core/scoring/engine.js';
-import { createDatabase } from '@stark/core/db/index.js';
-import { MockProvider } from '@stark/core/api/mock-provider.js';
-import { loadConfig } from '@stark/core/config/index.js';
+import { createCommandContext } from '../utils/command-context.js';
+import type { ScoreResult } from '@stark/core/scoring/engine.js';
 
 export async function scoreCommand(args: string[]): Promise<void> {
-  const symbolArg = args.find((a) => a.startsWith('--symbol='))?.split('=')[1];
+  // Support positional arg: stark score RELIANCE
+  const symbolArg =
+    args.find((a) => a.startsWith('--symbol='))?.split('=')[1] ??
+    args.find((a) => !a.startsWith('-') && /^[A-Z]/.test(a));
   const scoreAll = args.includes('--all');
 
   if (!symbolArg && !scoreAll) {
-    console.error('Usage: stark score --symbol=RELIANCE | --all');
+    console.error('Usage: stark score <SYMBOL> | --all');
     process.exit(1);
   }
 
-  const config = loadConfig();
-  const { db, queries } = createDatabase();
-
-  // Use mock provider for now (Angel One requires auth)
-  let provider;
-  try {
-    if (config.angelOne?.apiKey) {
-      const { AngelOneProvider } = await import(
-        '@stark/core/api/angel-one.js'
-      );
-      const p = new AngelOneProvider(config.angelOne.apiKey);
-      if (p.isAuthenticated()) {
-        provider = p;
-      }
-    }
-  } catch { /* fall through to mock */ }
-
-  if (!provider) {
-    provider = new MockProvider();
-    console.log('Using mock data (no authenticated session)\n');
-  }
-
-  const engine = new ScoringEngine(provider, db);
+  const { queries, engine } = await createCommandContext();
 
   if (symbolArg) {
     // Score single symbol
@@ -93,21 +72,14 @@ export async function scoreCommand(args: string[]): Promise<void> {
   }
 }
 
-function printResult(result: {
-  symbol: string;
-  factors: Array<{
-    factorName: string;
-    score: number;
-    maxScore: number;
-    reasoning: string;
-  }>;
-  algorithmicScore: number;
-  maxPossibleScore: number;
-}): void {
+function printResult(result: ScoreResult): void {
   console.log(`=== ${result.symbol} ===`);
   console.log(
-    `Algorithmic Score: ${result.algorithmicScore} / ${result.maxPossibleScore} (PARTIAL)`,
+    `Score: ${result.totalScore} / ${result.maxPossibleScore} (${result.status})`,
   );
+  if (result.status === 'COMPLETE') {
+    console.log(`  Algorithmic: ${result.algorithmicScore}  Discretionary: ${result.discretionaryScore}`);
+  }
   console.log('');
 
   for (const f of result.factors) {
@@ -116,7 +88,9 @@ function printResult(result: {
       f.maxScore === 1
         ? f.score === 1
           ? '1'
-          : '0'
+          : f.score === 0
+            ? '0'
+            : f.score.toFixed(1)
         : f.score.toFixed(1);
     console.log(`  ${mark} ${f.factorName}: ${scoreStr}/${f.maxScore}`);
     console.log(`    ${f.reasoning}`);

@@ -26,6 +26,29 @@ if (Test-Path $PROFILE) {
     Write-Host "[--] No PowerShell profile found." -ForegroundColor Gray
 }
 
+# Step 1b: Remove CMD access (stark.cmd)
+
+$starkCmd = 'C:\Windows\stark.cmd'
+if (Test-Path $starkCmd) {
+    Remove-Item $starkCmd -Force -ErrorAction SilentlyContinue
+    Write-Host "[OK] Removed $starkCmd" -ForegroundColor Green
+} else {
+    Write-Host '[--] No stark.cmd found in C:\Windows' -ForegroundColor Gray
+}
+
+# Step 1c: Remove WSL alias
+
+$wslCmd = Get-Command wsl -ErrorAction SilentlyContinue
+if ($wslCmd) {
+    $hasAlias = & wsl bash -c "grep -qF 'alias stark=' ~/.bashrc 2>/dev/null && echo yes || echo no"
+    if ($hasAlias.Trim() -eq 'yes') {
+        & wsl bash -c "sed -i '/# Stark-Trading CLI/d; /alias stark=/d' ~/.bashrc"
+        Write-Host "[OK] Removed 'stark' alias from WSL ~/.bashrc" -ForegroundColor Green
+    } else {
+        Write-Host "[--] No 'stark' alias found in WSL ~/.bashrc" -ForegroundColor Gray
+    }
+}
+
 # Step 2: Remove data directory
 
 Write-Host ""
@@ -54,10 +77,12 @@ Write-Host "===================================" -ForegroundColor Cyan
 Write-Host "  Uninstall complete." -ForegroundColor Cyan
 Write-Host "===================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Removed: PowerShell function + data directory"
+Write-Host '  Removed: PowerShell function + CMD shortcut + WSL alias + data directory'
 Write-Host "  Kept:    source code at $StarkDir"
-Write-Host ""
-Write-Host "  Restart PowerShell to clear the 'stark' function."
+Write-Host ''
+Write-Host '  PowerShell: restart to clear the stark function'
+Write-Host '  CMD:        stark.cmd removed (immediate)'
+Write-Host '  WSL:        run: source ~/.bashrc'
 Write-Host ""
 Write-Host "  To reinstall later:"
 Write-Host "    powershell -ExecutionPolicy Bypass -File $StarkDir\scripts\install.ps1"

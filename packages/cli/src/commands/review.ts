@@ -14,13 +14,16 @@ export async function reviewCommand(args: string[]): Promise<void> {
   const { db, queries } = createDatabase();
   const registry = createDefaultRegistry();
 
-  // Get review queue: PARTIAL scores with algorithmic score >= 3
+  // Get stocks that may need override review
+  // With LLM scoring, all stocks are COMPLETE — show those with total ≥ 3
   const candidates = db.query<{
     id: number;
     symbol: string;
     token: string;
     name: string;
     algorithmic_score: number;
+    discretionary_score: number;
+    total_score: number;
     score_breakdown_json: string;
     ep_catalyst: number | null;
     sector_strength: number | null;
@@ -30,18 +33,25 @@ export async function reviewCommand(args: string[]): Promise<void> {
     pivot_location: number | null;
     pattern_quality: number | null;
     pivot_level_proximity: number | null;
+    linearity: number | null;
+    not_pivot_cutter: number | null;
+    aoi: number | null;
+    hve_hvy: number | null;
+    hvq_2_5: number | null;
   }>(
-    `SELECT id, symbol, token, name, algorithmic_score, score_breakdown_json,
+    `SELECT id, symbol, token, name, algorithmic_score, discretionary_score, total_score,
+            score_breakdown_json,
             ep_catalyst, sector_strength, high_rs, ipo_recency,
-            thrust_power, pivot_location, pattern_quality, pivot_level_proximity
+            thrust_power, pivot_location, pattern_quality, pivot_level_proximity,
+            linearity, not_pivot_cutter, aoi, hve_hvy, hvq_2_5
      FROM stock_scores
-     WHERE status = 'PARTIAL' AND algorithmic_score >= 3
-     ORDER BY algorithmic_score DESC`,
+     WHERE total_score >= 3
+     ORDER BY total_score DESC`,
   );
 
   if (candidates.length === 0) {
-    console.log('No stocks in review queue (need PARTIAL scores with algo score >= 3)');
-    console.log('Run `stark score --all` first.');
+    console.log('No stocks in review queue (need scores ≥ 3)');
+    console.log('Run `stark score --all` or `stark evening` first.');
     return;
   }
 
@@ -56,9 +66,10 @@ export async function reviewCommand(args: string[]): Promise<void> {
     toReview = [candidates[0]];
   } else {
     // Show queue
-    console.log(`Review queue: ${candidates.length} stocks\n`);
+    console.log(`Override Review: ${candidates.length} stocks\n`);
     for (const c of candidates) {
-      console.log(`  ${c.symbol.padEnd(15)} Algo: ${c.algorithmic_score}/8  ${c.name}`);
+      const status = c.discretionary_score > 0 ? 'COMPLETE' : 'PARTIAL';
+      console.log(`  ${c.symbol.padEnd(15)} Total: ${c.total_score}/13  Status: ${status}  ${c.name}`);
     }
     console.log(`\nRun: stark review --next  or  stark review --symbol=SYMBOL`);
     return;
@@ -66,13 +77,14 @@ export async function reviewCommand(args: string[]): Promise<void> {
 
   for (const stock of toReview) {
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`REVIEW: ${stock.symbol} — ${stock.name}`);
+    console.log(`OVERRIDE REVIEW: ${stock.symbol} — ${stock.name}`);
     console.log(`${'='.repeat(60)}`);
 
-    // Show algorithmic breakdown
-    console.log(`\nAlgorithmic Score: ${stock.algorithmic_score}/8\n`);
+    // Show full score breakdown
+    console.log(`\nTotal Score: ${stock.total_score}/13`);
+    console.log(`  Algorithmic: ${stock.algorithmic_score}  Discretionary: ${stock.discretionary_score}\n`);
 
-    const algoFactors = [
+    const allFactors = [
       { id: 'ep_catalyst', name: 'EP Catalyst', val: stock.ep_catalyst },
       { id: 'sector_strength', name: 'Sector Strength', val: stock.sector_strength },
       { id: 'high_rs', name: 'High RS', val: stock.high_rs },
@@ -81,9 +93,14 @@ export async function reviewCommand(args: string[]): Promise<void> {
       { id: 'pivot_location', name: 'Pivot Location', val: stock.pivot_location },
       { id: 'pattern_quality', name: 'Pattern Quality', val: stock.pattern_quality },
       { id: 'pivot_level_proximity', name: 'Pivot Proximity', val: stock.pivot_level_proximity },
+      { id: 'linearity', name: 'Linearity', val: stock.linearity },
+      { id: 'not_pivot_cutter', name: 'NOT Pivot Cutter', val: stock.not_pivot_cutter },
+      { id: 'aoi', name: 'Area of Interest', val: stock.aoi },
+      { id: 'hve_hvy', name: 'HVE/HVY', val: stock.hve_hvy },
+      { id: 'hvq_2_5', name: '2.5 HVQ', val: stock.hvq_2_5 },
     ];
 
-    for (const f of algoFactors) {
+    for (const f of allFactors) {
       const mark = (f.val ?? 0) > 0 ? '✓' : '✗';
       console.log(`  ${mark} ${f.name}: ${f.val ?? 0}`);
     }
@@ -91,39 +108,17 @@ export async function reviewCommand(args: string[]): Promise<void> {
     // TradingView deep link
     console.log(`\n  TradingView: https://www.tradingview.com/chart/?symbol=NSE:${stock.symbol}`);
 
-    // Discretionary review
-    console.log('\n--- Discretionary Factors ---\n');
+    // Override review (optional)
+    console.log('\n--- Override Review (optional) ---\n');
 
-    const discretionary = registry.getDiscretionary();
-    let discretionaryScore = 0;
-    const factorUpdates: Record<string, number> = {};
-
-    for (const factor of discretionary) {
-      console.log(`  ${factor.name}: ${factor.description}`);
-      console.log(`  Guidance: ${factor.guidanceText}`);
-
-      let score: number;
-      if (factor.scoring === 'graduated') {
-        score = await askGraduated(`  Score for ${factor.name}`);
-      } else if (factor.maxPoints === 0.5) {
-        const yes = await askYesNo(`  ${factor.name}?`);
-        score = yes ? 0.5 : 0;
-      } else {
-        const yes = await askYesNo(`  ${factor.name}?`);
-        score = yes ? 1 : 0;
-      }
-
-      factorUpdates[factor.id] = score;
-      discretionaryScore += score;
-      console.log('');
-    }
-
-    // Ask for override
-    const wantOverride = await askYesNo('Override any algorithmic factor?');
+    const wantOverride = await askYesNo('Override any factor?');
     let overrideCount = 0;
+    const factorUpdates: Record<string, number> = {};
+    let newAlgo = stock.algorithmic_score;
+    let newDisc = stock.discretionary_score;
 
     if (wantOverride) {
-      for (const f of algoFactors) {
+      for (const f of allFactors) {
         const override = await askYesNo(`  Override ${f.name} (current: ${f.val ?? 0})?`);
         if (override) {
           const newVal = await askGraduated(`    New value for ${f.name}`);
@@ -135,47 +130,62 @@ export async function reviewCommand(args: string[]): Promise<void> {
           }
         }
       }
+
+      // Recalculate scores with overrides
+      const semiDiscIds = new Set(['linearity', 'not_pivot_cutter', 'aoi', 'hve_hvy', 'hvq_2_5']);
+      newAlgo = 0;
+      newDisc = 0;
+      for (const f of allFactors) {
+        const val = factorUpdates[f.id] ?? f.val ?? 0;
+        if (semiDiscIds.has(f.id)) {
+          newDisc += val;
+        } else {
+          newAlgo += val;
+        }
+      }
     }
 
-    // Calculate total
-    const totalScore = stock.algorithmic_score + discretionaryScore;
-    const maxScore = registry.maxScore();
+    const totalScore = newAlgo + newDisc;
 
     console.log(`\n--- Final Score ---`);
-    console.log(`  Algorithmic: ${stock.algorithmic_score}`);
-    console.log(`  Discretionary: ${discretionaryScore}`);
-    console.log(`  Total: ${totalScore} / ${maxScore}`);
-    console.log(`  Status: COMPLETE`);
+    console.log(`  Algorithmic: ${newAlgo}`);
+    console.log(`  Discretionary: ${newDisc}`);
+    console.log(`  Total: ${totalScore} / ${registry.maxScore()}`);
+    console.log(`  Overrides: ${overrideCount}`);
 
-    // Update DB
-    db.execute(
-      `UPDATE stock_scores SET
-         status = 'COMPLETE',
-         linearity = ?,
-         not_pivot_cutter = ?,
-         aoi = ?,
-         hve_hvy = ?,
-         hvq_2_5 = ?,
-         discretionary_score = ?,
-         total_score = ?,
-         override_count = ?,
-         reviewed_at = datetime('now'),
-         updated_at = datetime('now')
-       WHERE id = ?`,
-      [
-        factorUpdates['linearity'] ?? 0,
-        factorUpdates['not_pivot_cutter'] ?? 0,
-        factorUpdates['aoi'] ?? 0,
-        factorUpdates['hve_hvy'] ?? 0,
-        factorUpdates['hvq_2_5'] ?? 0,
-        discretionaryScore,
-        totalScore,
-        overrideCount,
-        stock.id,
-      ],
-    );
-
-    console.log(`  Saved to database.\n`);
+    if (overrideCount > 0) {
+      // Update DB with overrides
+      db.execute(
+        `UPDATE stock_scores SET
+           linearity = ?,
+           not_pivot_cutter = ?,
+           aoi = ?,
+           hve_hvy = ?,
+           hvq_2_5 = ?,
+           algorithmic_score = ?,
+           discretionary_score = ?,
+           total_score = ?,
+           override_count = ?,
+           reviewed_at = datetime('now'),
+           updated_at = datetime('now')
+         WHERE id = ?`,
+        [
+          factorUpdates['linearity'] ?? stock.linearity ?? 0,
+          factorUpdates['not_pivot_cutter'] ?? stock.not_pivot_cutter ?? 0,
+          factorUpdates['aoi'] ?? stock.aoi ?? 0,
+          factorUpdates['hve_hvy'] ?? stock.hve_hvy ?? 0,
+          factorUpdates['hvq_2_5'] ?? stock.hvq_2_5 ?? 0,
+          newAlgo,
+          newDisc,
+          totalScore,
+          overrideCount,
+          stock.id,
+        ],
+      );
+      console.log(`  Saved overrides to database.\n`);
+    } else {
+      console.log(`  No overrides. Score unchanged.\n`);
+    }
   }
 
   closePrompts();

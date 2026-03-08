@@ -10,7 +10,7 @@
 
 ## Problem Statement
 
-The user spends 2-3 hours each evening manually scoring 30-50 Indian stocks using a mentor's 12-subsection binary scoring system (max 12.5 points, threshold 8+). This involves cross-referencing TradingView charts, Angel One data, news sources, and market breadth indicators. The process is tedious, error-prone, and prevents the user from focusing on the discretionary judgment that actually matters.
+The user spends 2-3 hours each evening manually scoring 30-50 Indian stocks using a mentor's 12-subsection binary scoring system (max 13 points, threshold 8+). This involves cross-referencing TradingView charts, Angel One data, news sources, and market breadth indicators. The process is tedious, error-prone, and prevents the user from focusing on the discretionary judgment that actually matters.
 
 **Goal:** Reduce evening prep from 2-3 hours to 5-10 minutes by automating the 8 algorithmic factors and streamlining the 5 discretionary factors into a review queue.
 
@@ -261,7 +261,7 @@ stark-trading/
 - [ ] Configurable MBI `refresh_interval` in config (intraday seam 3)
 - [ ] Focus list generator:
   - Filter: COMPLETE + score >= threshold (8.0 bull / 8.5 choppy / 9.0 bear)
-  - Threshold auto-adjusts when factors disabled: `adjusted = Math.round(base × (adjMax / 12.5) × 2) / 2` (nearest 0.5)
+  - Threshold auto-adjusts when factors disabled: `adjusted = Math.round(base × (adjMax / 13) × 2) / 2` (nearest 0.5)
   - Prioritize STRONG sector stocks, then by score
   - Limit top 3-5, pre-calculate position sizes
 - [ ] Sector money flow (11 NSE sectors, STRONG/MODERATE/WEAK)
@@ -374,7 +374,7 @@ stark-trading/
 ## Definition of Done (Phase 1-3 MVP)
 
 1. `stark evening` scores all Priority 0 stocks and generates focus list in <2 minutes
-2. Scoring matches mentor's system: 12 subsections, binary, 12.5 max, 8+ threshold, two-phase workflow
+2. Scoring matches mentor's system: 12 subsections, binary, 13 max, 8+ threshold, two-phase workflow
 3. MBI/EM 5-tier regime classification with 3-tier fallback (Sheet → Chartink → self-calculated)
 4. `@stark/core` is a pure TypeScript package (portable across CLI, Tauri, web)
 5. Trade journal captures score context automatically, entry <30 seconds

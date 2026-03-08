@@ -43,6 +43,27 @@ export async function epCatalyst(input: FactorInput): Promise<FactorOutput> {
     }
   }
 
+  // If gap detected, verify it's not a corporate action via LLM
+  if (maxGap >= 8 && input.llmService) {
+    try {
+      const config = { enabled: true, perplexityKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
+      const research = await input.llmService.research(
+        `Has ${input.symbol} had any stock splits, bonus issues, or corporate actions in the last 5 trading days? NSE India stock. Answer briefly.`,
+        config,
+      );
+      if (research.answer.toLowerCase().includes('split') || research.answer.toLowerCase().includes('bonus')) {
+        return {
+          score: 0,
+          reasoning: `Gap of ${maxGap.toFixed(1)}% on ${gapDate} — likely corporate action: ${research.answer.slice(0, 100)}`,
+          dataSource: 'perplexity',
+          metadata: { gapPct: maxGap, gapDate, corporateAction: true },
+        };
+      }
+    } catch {
+      // LLM failed, proceed with gap-only logic
+    }
+  }
+
   if (maxGap >= 8) {
     return {
       score: 1,
@@ -50,6 +71,28 @@ export async function epCatalyst(input: FactorInput): Promise<FactorOutput> {
       dataSource: 'ohlcv_cache',
       metadata: { gapPct: maxGap, gapDate },
     };
+  }
+
+  // No gap — check for catalysts via LLM
+  if (input.llmService) {
+    try {
+      const config = { enabled: true, perplexityKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
+      const research = await input.llmService.research(
+        `Has ${input.symbol} had any recent earnings surprises, regulatory approvals, major contracts, or catalysts in the last 5 trading days? NSE India stock. Answer briefly.`,
+        config,
+      );
+      const hasPositive = /earnings|surprise|approval|contract|catalyst|strong|beat/i.test(research.answer);
+      if (hasPositive) {
+        return {
+          score: 1,
+          reasoning: `LLM-detected catalyst: ${research.answer.slice(0, 150)}`,
+          dataSource: 'perplexity',
+          metadata: { maxGap, llmCatalyst: true },
+        };
+      }
+    } catch {
+      // LLM failed, fall through to gap-only result
+    }
   }
 
   return {

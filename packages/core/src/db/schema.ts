@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS stock_scores (
   algorithmic_score REAL NOT NULL DEFAULT 0,
   discretionary_score REAL NOT NULL DEFAULT 0,
   total_score REAL NOT NULL DEFAULT 0,
-  max_possible_score REAL NOT NULL DEFAULT 12.5,
+  max_possible_score REAL NOT NULL DEFAULT 13,
   override_count INTEGER NOT NULL DEFAULT 0,
   score_breakdown_json TEXT,
   data_freshness TEXT NOT NULL DEFAULT 'fresh' CHECK (data_freshness IN ('fresh', 'stale')),

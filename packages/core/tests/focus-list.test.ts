@@ -73,8 +73,8 @@ describe('generateFocusList', () => {
     insertScore(db, 'STOCK_A', 7, 'COMPLETE');
 
     const result = generateFocusList(db, 'BULL', registry);
-    // Adjusted threshold: 8.0 * (10.5/12.5) = 6.72 → 6.5
-    expect(result.threshold).toBe(6.5);
+    // Adjusted threshold: 8.0 * (11/13) = 6.77 → 7.0
+    expect(result.threshold).toBe(7.0);
     expect(result.stocks.length).toBe(1);
 
     db.close();
