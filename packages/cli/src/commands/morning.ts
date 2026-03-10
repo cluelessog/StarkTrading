@@ -27,10 +27,8 @@ export async function morningCommand(_args: string[]): Promise<void> {
   if (llmService) {
     const symbolList = focusStocks.map((s) => s.symbol).join(', ');
     try {
-      const config = { enabled: true, perplexityKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
       const news = await llmService.research(
         `What are the overnight developments and pre-market news for these NSE India stocks: ${symbolList}? Focus on earnings, corporate actions, regulatory changes, or major events from the last 12 hours. Be brief.`,
-        config,
       );
       console.log('--- Overnight News ---');
       console.log(news.answer);

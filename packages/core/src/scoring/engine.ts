@@ -14,6 +14,7 @@ import {
   type ScoringContext,
   createScoringContext,
   trackError,
+  trackDegradedFactor,
   completeContext,
 } from './context.js';
 import { epCatalyst } from './factors/ep-catalyst.js';
@@ -66,6 +67,7 @@ export interface ScoreResult {
   totalScore: number;
   maxPossibleScore: number;
   status: 'PARTIAL' | 'COMPLETE';
+  degradedFactors: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +141,9 @@ export class ScoringEngine {
 
       try {
         const output = await factor.fn(input);
+        if (output.degraded) {
+          trackDegradedFactor(context, symbol, factor.id);
+        }
         factors.push({
           factorId: factor.id,
           factorName: factor.name,
@@ -146,6 +151,7 @@ export class ScoringEngine {
           maxScore: factor.maxPoints,
           reasoning: output.reasoning,
           dataSource: output.dataSource,
+          degraded: output.degraded,
         });
         if (semiDiscretionaryIds.has(factor.id)) {
           discretionaryScore += output.score;
@@ -154,6 +160,7 @@ export class ScoringEngine {
         }
       } catch (err) {
         trackError(context, symbol, factor.id, (err as Error).message);
+        trackDegradedFactor(context, symbol, factor.id);
         factors.push({
           factorId: factor.id,
           factorName: factor.name,
@@ -161,6 +168,7 @@ export class ScoringEngine {
           maxScore: factor.maxPoints,
           reasoning: `Error: ${(err as Error).message}`,
           dataSource: 'error',
+          degraded: true,
         });
       }
     }
@@ -168,6 +176,10 @@ export class ScoringEngine {
     const totalScore = algorithmicScore + discretionaryScore;
     const allFactorsScored = factors.length === this.registry.getEnabled().length;
     const status: 'PARTIAL' | 'COMPLETE' = allFactorsScored ? 'COMPLETE' : 'PARTIAL';
+
+    const degradedFactors = context.degradedFactors
+      .filter((d) => d.symbol === symbol)
+      .map((d) => d.factorId);
 
     return {
       symbol,
@@ -178,6 +190,7 @@ export class ScoringEngine {
       totalScore,
       maxPossibleScore: this.registry.maxScore(),
       status,
+      degradedFactors,
     };
   }
 

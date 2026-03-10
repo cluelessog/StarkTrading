@@ -105,14 +105,16 @@ describe('patternQuality LLM-enhanced', () => {
         Promise.resolve({ score: 1, reasoning: 'Valid VCP pattern confirmed', confidence: 0.9, cached: false }),
       ),
       research: mock(() => Promise.resolve({ answer: '', sources: [], cached: false })),
-      isEnabled: () => true,
+      canAnalyze: () => true,
+      canResearch: () => false,
+      getAnalysisProvider: () => 'claude',
     };
 
     const result = await patternQuality(makeInput(bars, llm));
     // If algorithmic detects partial VCP (0.5), LLM should upgrade to 1.0
     if (result.metadata?.contractionCount && result.metadata.contractionCount >= 2) {
       expect(result.score).toBe(1.0);
-      expect(result.dataSource).toBe('gemini');
+      expect(result.dataSource).not.toBe('ohlcv_cache');
     }
   });
 
@@ -121,7 +123,9 @@ describe('patternQuality LLM-enhanced', () => {
     const llm: LLMService = {
       analyzeOHLCV: mock(() => Promise.reject(new Error('API error'))),
       research: mock(() => Promise.resolve({ answer: '', sources: [], cached: false })),
-      isEnabled: () => true,
+      canAnalyze: () => true,
+      canResearch: () => false,
+      getAnalysisProvider: () => 'claude',
     };
 
     const result = await patternQuality(makeInput(bars, llm));

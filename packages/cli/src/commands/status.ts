@@ -49,11 +49,16 @@ export async function statusCommand(_args: string[]): Promise<void> {
     `  Angel One API Key: ${config.angelOne?.apiKey ? 'SET' : 'NOT SET'}`,
   );
   console.log(
+    `  Anthropic Key: ${config.llm?.anthropicKey ? 'SET' : 'NOT SET'}`,
+  );
+  console.log(
     `  Gemini Key: ${config.llm?.geminiKey ? 'SET' : 'NOT SET'}`,
   );
   console.log(
     `  Perplexity Key: ${config.llm?.perplexityKey ? 'SET' : 'NOT SET'}`,
   );
   console.log(`  LLM Enabled: ${config.llm?.enabled ?? false}`);
+  const provider = config.llm?.anthropicKey ? 'claude' : config.llm?.geminiKey ? 'gemini' : 'none (algorithmic only)';
+  console.log(`  Analysis Provider: ${provider}`);
   console.log('  Database: ~/.stark/stark.db');
 }

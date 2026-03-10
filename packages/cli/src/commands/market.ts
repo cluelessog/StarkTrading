@@ -30,11 +30,9 @@ export async function marketCommand(_args: string[]): Promise<void> {
     // LLM market narrative
     if (llmService) {
       try {
-        const llmConfig = { enabled: true, geminiKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
         const narrative = await llmService.analyzeOHLCV(
           `Provide a brief market narrative for the Indian stock market. Current regime: ${regime}. EM: ${mbi.em ?? 'N/A'}. 52W High %: ${mbi.pct52WH ?? 'N/A'}. 52W Low %: ${mbi.pct52WL ?? 'N/A'}. Above 200 SMA %: ${mbi.pctAbove200SMA ?? 'N/A'}. Give a 2-3 sentence assessment of market conditions and what traders should watch for.`,
           [],
-          llmConfig,
         );
         console.log('\n--- AI Market Narrative ---');
         console.log(narrative.reasoning);

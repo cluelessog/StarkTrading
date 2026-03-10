@@ -33,7 +33,7 @@ export async function createCommandContext(): Promise<CommandContext> {
 
   // LLM service (optional)
   let llmService: LLMService | null = null;
-  if (config.llm?.enabled && (config.llm.geminiKey || config.llm.perplexityKey)) {
+  if (config.llm?.enabled && (config.llm.anthropicKey || config.llm.geminiKey || config.llm.perplexityKey)) {
     llmService = new LLMServiceImpl(config.llm, db);
   }
 

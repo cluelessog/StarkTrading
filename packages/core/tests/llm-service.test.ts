@@ -292,31 +292,19 @@ describe('PerplexityClient', () => {
 // ---------------------------------------------------------------------------
 
 describe('LLMServiceImpl', () => {
-  it('isEnabled returns false when disabled', () => {
+  it('canAnalyze returns false when no analysis keys', () => {
     const db = createMockDb();
     const config: LLMConfig = {
-      enabled: false,
-      geminiKey: 'key',
+      enabled: true,
       perplexityKey: 'key',
       cacheResponses: true,
       cacheTtlHours: 24,
     };
     const service = new LLMServiceImpl(config, db);
-    expect(service.isEnabled(config)).toBe(false);
+    expect(service.canAnalyze()).toBe(false);
   });
 
-  it('isEnabled returns false when no keys', () => {
-    const db = createMockDb();
-    const config: LLMConfig = {
-      enabled: true,
-      cacheResponses: true,
-      cacheTtlHours: 24,
-    };
-    const service = new LLMServiceImpl(config, db);
-    expect(service.isEnabled(config)).toBe(false);
-  });
-
-  it('isEnabled returns true when enabled with keys', () => {
+  it('canAnalyze returns true with gemini key', () => {
     const db = createMockDb();
     const config: LLMConfig = {
       enabled: true,
@@ -325,10 +313,71 @@ describe('LLMServiceImpl', () => {
       cacheTtlHours: 24,
     };
     const service = new LLMServiceImpl(config, db);
-    expect(service.isEnabled(config)).toBe(true);
+    expect(service.canAnalyze()).toBe(true);
   });
 
-  it('analyzeOHLCV returns fallback when no Gemini key', async () => {
+  it('canAnalyze returns true with anthropic key', () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      anthropicKey: 'key',
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    expect(service.canAnalyze()).toBe(true);
+  });
+
+  it('canResearch returns false when no perplexity key', () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      geminiKey: 'key',
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    expect(service.canResearch()).toBe(false);
+  });
+
+  it('canResearch returns true with perplexity key', () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      perplexityKey: 'key',
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    expect(service.canResearch()).toBe(true);
+  });
+
+  it('getAnalysisProvider returns claude when anthropic key set', () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      anthropicKey: 'key',
+      geminiKey: 'key2',
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    expect(service.getAnalysisProvider()).toBe('claude');
+  });
+
+  it('getAnalysisProvider returns gemini when only gemini key set', () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      geminiKey: 'key',
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    expect(service.getAnalysisProvider()).toBe('gemini');
+  });
+
+  it('getAnalysisProvider returns none when no keys', () => {
     const db = createMockDb();
     const config: LLMConfig = {
       enabled: true,
@@ -336,9 +385,20 @@ describe('LLMServiceImpl', () => {
       cacheTtlHours: 24,
     };
     const service = new LLMServiceImpl(config, db);
-    const result = await service.analyzeOHLCV('test', [], config);
+    expect(service.getAnalysisProvider()).toBe('none');
+  });
+
+  it('analyzeOHLCV returns fallback when no analysis provider', async () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    const result = await service.analyzeOHLCV('test', []);
     expect(result.score).toBe(0);
-    expect(result.reasoning).toContain('not configured');
+    expect(result.reasoning).toContain('No analysis provider configured');
   });
 
   it('research returns fallback when no Perplexity key', async () => {
@@ -349,7 +409,7 @@ describe('LLMServiceImpl', () => {
       cacheTtlHours: 24,
     };
     const service = new LLMServiceImpl(config, db);
-    const result = await service.research('test', config);
+    const result = await service.research('test');
     expect(result.answer).toContain('not configured');
   });
 });

@@ -59,22 +59,27 @@ export async function linearity(input: FactorInput): Promise<FactorOutput> {
   }
 
   // Borderline — use LLM if available
-  if (llmService && llmService.isEnabled({ enabled: true, geminiKey: 'check', cacheResponses: true, cacheTtlHours: 24 })) {
+  if (llmService) {
     try {
-      const config = { enabled: true, geminiKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
       const result = await llmService.analyzeOHLCV(
         `Analyze the trend linearity for ${symbol}. Is the uptrend over the last 60 days smooth and linear (clean diagonal) or choppy/staircase? Answer with score 1 for smooth linear, 0 for choppy. Consider: std dev of daily returns is ${stdDev.toFixed(2)}%, up-day ratio is ${(upRatio * 100).toFixed(0)}%.`,
         recent,
-        config,
       );
       return {
         score: result.score >= 0.5 ? 1 : 0,
         reasoning: `LLM assessment: ${result.reasoning}`,
-        dataSource: 'gemini',
+        dataSource: llmService.getAnalysisProvider(),
         metadata: { stdDev, upRatio, llmScore: result.score, llmConfidence: result.confidence },
       };
     } catch {
       // LLM failed, fall through to fallback
+      return {
+        score: 0,
+        reasoning: `Borderline linearity (std dev ${stdDev.toFixed(2)}%, up-day ratio ${(upRatio * 100).toFixed(0)}%). LLM failed`,
+        dataSource: 'ohlcv_cache',
+        metadata: { stdDev, upRatio },
+        degraded: true,
+      };
     }
   }
 

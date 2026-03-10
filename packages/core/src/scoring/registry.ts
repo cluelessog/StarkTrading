@@ -22,6 +22,7 @@ export interface FactorOutput {
   reasoning: string;
   dataSource: string;
   metadata?: Record<string, unknown>;
+  degraded?: boolean;
 }
 
 export type FactorFunction = (input: FactorInput) => Promise<FactorOutput>;
@@ -201,7 +202,7 @@ export function createDefaultRegistry(): FactorRegistry {
     type: 'semi-discretionary',
     scoring: 'graduated',
     maxPoints: 1,
-    dataSource: 'Angel One OHLCV + optional Gemini',
+    dataSource: 'Angel One OHLCV + optional LLM',
     description: 'VCP heuristic: contracting volatility pattern',
     guidanceText: 'Look for progressively tighter contractions with declining volume — classic VCP',
     enabled: true,
@@ -230,7 +231,7 @@ export function createDefaultRegistry(): FactorRegistry {
     type: 'semi-discretionary',
     scoring: 'binary',
     maxPoints: 1,
-    dataSource: 'OHLCV + optional Gemini',
+    dataSource: 'OHLCV + optional LLM',
     description: 'Prior uptrend is smooth and linear',
     guidanceText: 'The uptrend should look clean — smooth diagonal, not choppy or staircase',
     enabled: true,
@@ -244,7 +245,7 @@ export function createDefaultRegistry(): FactorRegistry {
     type: 'semi-discretionary',
     scoring: 'binary',
     maxPoints: 1,
-    dataSource: 'OHLCV + optional Gemini',
+    dataSource: 'OHLCV + optional LLM',
     description: 'No history of false breakouts at pivot',
     guidanceText: 'Check: has this stock cut through its pivot and reversed recently? If yes, score 0',
     enabled: true,
@@ -258,7 +259,7 @@ export function createDefaultRegistry(): FactorRegistry {
     type: 'semi-discretionary',
     scoring: 'binary',
     maxPoints: 1,
-    dataSource: 'OHLCV + optional Gemini',
+    dataSource: 'OHLCV + optional LLM',
     description: 'Price at a significant level of interest',
     guidanceText: 'Is the stock at a confluence zone — prior resistance, round number, moving average convergence?',
     enabled: true,

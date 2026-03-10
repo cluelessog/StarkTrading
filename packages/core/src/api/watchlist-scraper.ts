@@ -78,10 +78,8 @@ async function llmFallback(
   llmService: LLMService,
 ): Promise<ScrapeResult> {
   try {
-    const config = { enabled: true, perplexityKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
     const result = await llmService.research(
       `List all NSE India stock symbols from this TradingView watchlist URL: ${url}. Return only the stock symbols separated by commas, no explanations.`,
-      config,
     );
 
     const symbolPattern = /[A-Z][A-Z0-9_]{1,20}/g;

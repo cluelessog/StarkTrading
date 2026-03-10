@@ -46,10 +46,8 @@ export async function epCatalyst(input: FactorInput): Promise<FactorOutput> {
   // If gap detected, verify it's not a corporate action via LLM
   if (maxGap >= 8 && input.llmService) {
     try {
-      const config = { enabled: true, perplexityKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
       const research = await input.llmService.research(
         `Has ${input.symbol} had any stock splits, bonus issues, or corporate actions in the last 5 trading days? NSE India stock. Answer briefly.`,
-        config,
       );
       if (research.answer.toLowerCase().includes('split') || research.answer.toLowerCase().includes('bonus')) {
         return {
@@ -61,6 +59,13 @@ export async function epCatalyst(input: FactorInput): Promise<FactorOutput> {
       }
     } catch {
       // LLM failed, proceed with gap-only logic
+      return {
+        score: 0,
+        reasoning: `Gap of ${maxGap.toFixed(1)}% on ${gapDate} — LLM unavailable for corporate action check`,
+        dataSource: 'ohlcv_cache',
+        degraded: true,
+        metadata: { gapPct: maxGap, gapDate },
+      };
     }
   }
 
@@ -76,10 +81,8 @@ export async function epCatalyst(input: FactorInput): Promise<FactorOutput> {
   // No gap — check for catalysts via LLM
   if (input.llmService) {
     try {
-      const config = { enabled: true, perplexityKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
       const research = await input.llmService.research(
         `Has ${input.symbol} had any recent earnings surprises, regulatory approvals, major contracts, or catalysts in the last 5 trading days? NSE India stock. Answer briefly.`,
-        config,
       );
       const hasPositive = /earnings|surprise|approval|contract|catalyst|strong|beat/i.test(research.answer);
       if (hasPositive) {
@@ -91,7 +94,13 @@ export async function epCatalyst(input: FactorInput): Promise<FactorOutput> {
         };
       }
     } catch {
-      // LLM failed, fall through to gap-only result
+      return {
+        score: 0,
+        reasoning: `Max gap ${maxGap.toFixed(1)}% (threshold: 8%) — LLM unavailable for catalyst check`,
+        dataSource: 'ohlcv_cache',
+        degraded: true,
+        metadata: { maxGap },
+      };
     }
   }
 

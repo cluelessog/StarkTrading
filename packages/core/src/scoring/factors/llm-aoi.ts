@@ -90,22 +90,27 @@ export async function areaOfInterest(input: FactorInput): Promise<FactorOutput> 
   }
 
   // Borderline (1-2 levels) — use LLM if available
-  if (llmService && llmService.isEnabled({ enabled: true, geminiKey: 'check', cacheResponses: true, cacheTtlHours: 24 })) {
+  if (llmService) {
     try {
-      const config = { enabled: true, geminiKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
       const result = await llmService.analyzeOHLCV(
         `Analyze ${symbol} at price ${currentPrice.toFixed(2)} for Area of Interest. There are ${nearbyLevels.length} support/resistance levels nearby${nearRound ? ' and the price is near a round number' : ''}. Is this a significant confluence zone? Score 1 for significant AOI, 0 for not significant.`,
         bars,
-        config,
       );
       return {
         score: result.score >= 0.5 ? 1 : 0,
         reasoning: `LLM assessment: ${result.reasoning}`,
-        dataSource: 'gemini',
+        dataSource: llmService.getAnalysisProvider(),
         metadata: { confluenceCount, nearbyLevels, nearRound, llmScore: result.score },
       };
     } catch {
       // LLM failed, fall through
+      return {
+        score: 0,
+        reasoning: `Borderline AOI: ${confluenceCount} level(s) near ${currentPrice.toFixed(2)}. LLM failed`,
+        dataSource: 'ohlcv_cache',
+        metadata: { confluenceCount, nearbyLevels, nearRound },
+        degraded: true,
+      };
     }
   }
 

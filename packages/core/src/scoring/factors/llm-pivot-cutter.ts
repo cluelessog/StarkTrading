@@ -64,22 +64,27 @@ export async function pivotCutter(input: FactorInput): Promise<FactorOutput> {
   }
 
   // Ambiguous (1-2 rejections) — use LLM if available
-  if (llmService && llmService.isEnabled({ enabled: true, geminiKey: 'check', cacheResponses: true, cacheTtlHours: 24 })) {
+  if (llmService) {
     try {
-      const config = { enabled: true, geminiKey: 'check', cacheResponses: true, cacheTtlHours: 24 };
       const result = await llmService.analyzeOHLCV(
         `Analyze ${symbol} for pivot cutting behavior. Resistance is at ${resistance.toFixed(2)}. There have been ${rejections} rejection(s) at this level. Is this stock a pivot cutter (tends to break above resistance then reverse)? Score 1 if NOT a pivot cutter, 0 if it IS a pivot cutter.`,
         analysisWindow,
-        config,
       );
       return {
         score: result.score >= 0.5 ? 1 : 0,
         reasoning: `LLM assessment (${rejections} rejections): ${result.reasoning}`,
-        dataSource: 'gemini',
+        dataSource: llmService.getAnalysisProvider(),
         metadata: { rejections, resistance, llmScore: result.score },
       };
     } catch {
       // LLM failed, fall through
+      return {
+        score: 0,
+        reasoning: `Ambiguous: ${rejections} rejection(s) at resistance ${resistance.toFixed(2)}. LLM failed`,
+        dataSource: 'ohlcv_cache',
+        metadata: { rejections, resistance },
+        degraded: true,
+      };
     }
   }
 

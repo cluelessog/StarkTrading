@@ -9,6 +9,7 @@ export interface ScoringContext {
   cacheMisses: number;
   llmCalls: number;
   errors: Array<{ symbol: string; factor: string; error: string }>;
+  degradedFactors: Array<{ symbol: string; factorId: string }>;
   completedAt?: number;
 }
 
@@ -22,7 +23,16 @@ export function createScoringContext(symbols: string[]): ScoringContext {
     cacheMisses: 0,
     llmCalls: 0,
     errors: [],
+    degradedFactors: [],
   };
+}
+
+export function trackDegradedFactor(
+  ctx: ScoringContext,
+  symbol: string,
+  factorId: string,
+): void {
+  ctx.degradedFactors.push({ symbol, factorId });
 }
 
 export function trackApiCall(ctx: ScoringContext, service: string): void {

@@ -47,7 +47,9 @@ function mockLLMService(researchAnswer: string): LLMService {
   return {
     analyzeOHLCV: mock(() => Promise.resolve({ score: 0, reasoning: '', confidence: 0, cached: false })),
     research: mock(() => Promise.resolve({ answer: researchAnswer, sources: [], cached: false })),
-    isEnabled: () => true,
+    canAnalyze: () => true,
+    canResearch: () => true,
+    getAnalysisProvider: () => 'claude',
   };
 }
 
@@ -95,7 +97,9 @@ describe('epCatalyst LLM-enhanced', () => {
     const llm: LLMService = {
       analyzeOHLCV: mock(() => Promise.reject(new Error('API error'))),
       research: mock(() => Promise.reject(new Error('API error'))),
-      isEnabled: () => true,
+      canAnalyze: () => true,
+      canResearch: () => true,
+      getAnalysisProvider: () => 'claude',
     };
     const result = await epCatalyst(makeInput(bars, llm));
     expect(result.score).toBe(0);

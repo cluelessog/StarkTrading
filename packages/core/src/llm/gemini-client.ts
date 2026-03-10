@@ -5,6 +5,7 @@ export interface LLMAnalysisResult {
   reasoning: string;
   confidence: number;
   cached: boolean;
+  providerUsed?: string;
 }
 
 export class GeminiClient {
@@ -30,7 +31,7 @@ export class GeminiClient {
     if (cached) {
       try {
         const parsed = JSON.parse(cached.response);
-        return { ...parsed, cached: true };
+        return { ...parsed, cached: true, providerUsed: 'gemini' };
       } catch {
         // Cache corrupted, re-fetch
       }
@@ -86,6 +87,6 @@ export class GeminiClient {
     // Cache the result
     this.cache.set(promptHash, JSON.stringify(normalized), 'gemini-2.0-flash');
 
-    return { ...normalized, cached: false };
+    return { ...normalized, cached: false, providerUsed: 'gemini' };
   }
 }

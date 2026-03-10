@@ -7,6 +7,7 @@ export interface FactorResult {
   maxScore: number;
   dataSource: string;
   reasoning: string;
+  degraded?: boolean;
 }
 
 export interface ScoreBreakdown {

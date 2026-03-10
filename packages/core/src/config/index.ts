@@ -48,6 +48,7 @@ export interface AngelOneConfig {
 }
 
 export interface LLMConfig {
+  anthropicKey?: string;
   geminiKey?: string;
   perplexityKey?: string;
   enabled: boolean;

@@ -29,7 +29,9 @@ function createMockLLMService(): LLMService {
         cached: false,
       }),
     ),
-    isEnabled: () => true,
+    canAnalyze: () => true,
+    canResearch: () => true,
+    getAnalysisProvider: () => 'claude',
   };
 }
 
@@ -119,7 +121,9 @@ describe('ScoringEngine integration', () => {
     const failingLLM: LLMService = {
       analyzeOHLCV: mock(() => Promise.reject(new Error('LLM API down'))),
       research: mock(() => Promise.reject(new Error('LLM API down'))),
-      isEnabled: () => true,
+      canAnalyze: () => true,
+      canResearch: () => true,
+      getAnalysisProvider: () => 'claude',
     };
     const engine = new ScoringEngine(provider, db, undefined, failingLLM);
 

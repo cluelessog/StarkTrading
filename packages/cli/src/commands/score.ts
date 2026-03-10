@@ -29,6 +29,7 @@ export async function scoreCommand(args: string[]): Promise<void> {
       cacheMisses: 0,
       llmCalls: 0,
       errors: [],
+      degradedFactors: [],
     });
 
     printResult(result);
@@ -84,6 +85,7 @@ function printResult(result: ScoreResult): void {
 
   for (const f of result.factors) {
     const mark = f.score > 0 ? '✓' : '✗';
+    const degradedMark = f.degraded ? ' [degraded]' : '';
     const scoreStr =
       f.maxScore === 1
         ? f.score === 1
@@ -92,7 +94,13 @@ function printResult(result: ScoreResult): void {
             ? '0'
             : f.score.toFixed(1)
         : f.score.toFixed(1);
-    console.log(`  ${mark} ${f.factorName}: ${scoreStr}/${f.maxScore}`);
+    console.log(`  ${mark} ${f.factorName}: ${scoreStr}/${f.maxScore}${degradedMark}`);
     console.log(`    ${f.reasoning}`);
+  }
+
+  if (result.degradedFactors.length > 0) {
+    console.log(
+      `\nNote: ${result.degradedFactors.length} factor(s) scored with reduced accuracy due to LLM API issues: ${result.degradedFactors.join(', ')}`,
+    );
   }
 }

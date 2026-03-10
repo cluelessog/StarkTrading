@@ -19,6 +19,7 @@ const COMMANDS = [
   { name: "heat",        description: "Show portfolio heat (risk exposure)" },
   { name: "evolve",      description: "Show scoring evolution and factor edges" },
   { name: "cron",        description: "Manage scheduled tasks and automation" },
+  { name: "setup",       description: "Configure API keys for LLM and broker integrations" },
 ];
 
 function printHelp(): void {
@@ -143,6 +144,11 @@ async function main(): Promise<void> {
     case "evolve": {
       const { evolveCommand } = await import("../src/commands/evolve.js");
       await evolveCommand(commandArgs);
+      break;
+    }
+    case "setup": {
+      const { setupCommand } = await import("../src/commands/setup.js");
+      await setupCommand(commandArgs);
       break;
     }
     default:
