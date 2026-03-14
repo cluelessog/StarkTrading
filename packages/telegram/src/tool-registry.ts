@@ -1,5 +1,3 @@
-import type { PersistentCommandContext } from '@stark/cli/utils/command-context.js';
-
 export interface ToolResult {
   data: unknown;
   summary: string;
@@ -9,7 +7,7 @@ export interface StarkTool {
   name: string;
   description: string;
   examples: string[];
-  execute(args: Record<string, string>, ctx: PersistentCommandContext): Promise<ToolResult>;
+  execute(args: Record<string, string>): Promise<ToolResult>;
 }
 
 export class ToolRegistry {

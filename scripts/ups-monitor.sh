@@ -10,17 +10,16 @@ I2C_BUS=1
 I2C_ADDR=0x36
 SHUTDOWN_THRESHOLD=20
 
-# Read battery voltage from MAX17040 fuel gauge (register 0x02)
+# Read battery SOC from MAX17040 fuel gauge (register 0x04)
+# i2cget returns little-endian 16-bit: low byte = integer %, high byte = fractional
 read_battery_percent() {
   local raw
   raw=$(i2cget -y "$I2C_BUS" "$I2C_ADDR" 0x04 w 2>/dev/null) || {
     echo "ERROR: Cannot read I2C device at $I2C_ADDR" >&2
     return 1
   }
-  # Swap bytes (little-endian) and calculate percentage
-  local high=$((raw & 0xFF))
-  local low=$(((raw >> 8) & 0xFF))
-  local percent=$((high + (low >> 8)))
+  # Low byte of LE word is the integer percentage (0-100)
+  local percent=$((raw & 0xFF))
   echo "$percent"
 }
 

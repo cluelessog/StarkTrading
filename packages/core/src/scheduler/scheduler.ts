@@ -67,8 +67,8 @@ export class TradingScheduler {
 
     if (!this.isTradingDay(now)) return;
 
-    // Evening callback
-    if (ist.time === this.config.eveningTime && this.lastRun.eveningDate !== ist.date) {
+    // Evening callback (5-min window to absorb tick drift)
+    if (this.isInWindow(ist.time, this.config.eveningTime) && this.lastRun.eveningDate !== ist.date) {
       this.lastRun.eveningDate = ist.date;
       try {
         await callbacks.onEvening();
@@ -77,8 +77,8 @@ export class TradingScheduler {
       }
     }
 
-    // Morning callback
-    if (ist.time === this.config.morningTime && this.lastRun.morningDate !== ist.date) {
+    // Morning callback (5-min window to absorb tick drift)
+    if (this.isInWindow(ist.time, this.config.morningTime) && this.lastRun.morningDate !== ist.date) {
       this.lastRun.morningDate = ist.date;
       try {
         await callbacks.onMorning();
@@ -102,6 +102,15 @@ export class TradingScheduler {
 
   private isInMarketHours(time: string): boolean {
     return time >= '09:15' && time <= '15:30';
+  }
+
+  /** Check if current time is within a 5-minute window of the target (absorbs tick drift). */
+  private isInWindow(current: string, target: string): boolean {
+    const [tH, tM] = target.split(':').map(Number);
+    const [cH, cM] = current.split(':').map(Number);
+    const targetMin = tH * 60 + tM;
+    const currentMin = cH * 60 + cM;
+    return currentMin >= targetMin && currentMin < targetMin + 5;
   }
 
   private getISTComponents(date: Date): { date: string; time: string } {

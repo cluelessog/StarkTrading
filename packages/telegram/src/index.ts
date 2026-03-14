@@ -64,7 +64,7 @@ export async function startBot(options: BotOptions): Promise<void> {
 
     let reply: string;
     try {
-      const result = await tool.execute(intent.args, ctx);
+      const result = await tool.execute(intent.args);
       reply = formatter.format(intent.command, result);
     } catch (err) {
       logger.error('bot', 'tool_error', `Tool error [${intent.command}]: ${(err as Error).message}`);
