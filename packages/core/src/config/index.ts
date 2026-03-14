@@ -56,11 +56,24 @@ export interface LLMConfig {
   cacheTtlHours: number;
 }
 
+export interface TelegramConfig {
+  botToken: string;
+  allowedChatIds: number[];
+}
+
+export interface SchedulerConfig {
+  eveningTime?: string;
+  morningTime?: string;
+  syncIntervalMinutes?: number;
+}
+
 // TODO(intraday-seam-3): StarkModelConfig in models/config.ts has mbi.refreshInterval.
 // When migrating to StarkModelConfig as the runtime type, ensure refreshInterval is preserved.
 export interface StarkConfig {
   angelOne?: AngelOneConfig;
   llm?: LLMConfig;
+  telegram?: TelegramConfig;
+  scheduler?: SchedulerConfig;
   emThresholds: EMThresholdsConfig;
   risk: RiskConfig;
   sheetId: string;

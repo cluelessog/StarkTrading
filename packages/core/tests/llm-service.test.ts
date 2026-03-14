@@ -412,4 +412,124 @@ describe('LLMServiceImpl', () => {
     const result = await service.research('test');
     expect(result.answer).toContain('not configured');
   });
+
+  it('canComplete returns true when gemini key is configured', () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      geminiKey: 'key',
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    expect(service.canComplete()).toBe(true);
+  });
+
+  it('canComplete returns true when anthropic key is configured', () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      anthropicKey: 'key',
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    expect(service.canComplete()).toBe(true);
+  });
+
+  it('canComplete returns false when no keys configured', () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    expect(service.canComplete()).toBe(false);
+  });
+
+  it('complete() calls Gemini API and returns text', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: '{"command":"score","args":{"symbol":"RELIANCE"}}' }],
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    ) as typeof fetch;
+
+    try {
+      const db = createMockDb();
+      const config: LLMConfig = {
+        enabled: true,
+        geminiKey: 'test-key',
+        cacheResponses: true,
+        cacheTtlHours: 24,
+      };
+      const service = new LLMServiceImpl(config, db);
+      const result = await service.complete('classify this: score RELIANCE');
+      expect(result).toContain('score');
+      expect(result).toContain('RELIANCE');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('complete() falls back to Claude when Gemini fails', async () => {
+    const originalFetch = globalThis.fetch;
+    let callCount = 0;
+    globalThis.fetch = mock((url: string | URL | Request) => {
+      callCount++;
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('googleapis')) {
+        return Promise.resolve(new Response('Error', { status: 500 }));
+      }
+      // Claude fallback
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            content: [{ text: 'Claude fallback response' }],
+          }),
+          { status: 200 },
+        ),
+      );
+    }) as typeof fetch;
+
+    try {
+      const db = createMockDb();
+      const config: LLMConfig = {
+        enabled: true,
+        geminiKey: 'gemini-key',
+        anthropicKey: 'claude-key',
+        cacheResponses: true,
+        cacheTtlHours: 24,
+      };
+      const service = new LLMServiceImpl(config, db);
+      const result = await service.complete('test prompt');
+      expect(result).toBe('Claude fallback response');
+      expect(callCount).toBe(2); // Gemini failed, then Claude succeeded
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('complete() throws when no provider configured', async () => {
+    const db = createMockDb();
+    const config: LLMConfig = {
+      enabled: true,
+      cacheResponses: true,
+      cacheTtlHours: 24,
+    };
+    const service = new LLMServiceImpl(config, db);
+    await expect(service.complete('test')).rejects.toThrow('No LLM provider configured');
+  });
 });

@@ -27,6 +27,7 @@ export class BunSQLiteAdapter implements DatabaseAdapter {
     const { Database } = require('bun:sqlite') as typeof import('bun:sqlite');
     this.db = new Database(resolved, { create: true });
     this.db.exec('PRAGMA journal_mode = WAL;');
+    this.db.exec('PRAGMA busy_timeout = 5000;');
   }
 
   execute(sql: string, params: unknown[] = []): void {

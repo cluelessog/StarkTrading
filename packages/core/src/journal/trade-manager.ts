@@ -5,7 +5,7 @@ export interface EntryInput {
   symbol: string;
   entryPrice: number;
   shares: number;
-  stopPrice: number;
+  stopPrice?: number;
   conviction: 'HIGH' | 'MEDIUM' | 'LOW';
   tradeType?: 'swing' | 'intraday';
   sectorAtEntry?: string;
@@ -16,8 +16,8 @@ export interface EntryResult {
   symbol: string;
   entryPrice: number;
   shares: number;
-  stopPrice: number;
-  riskAmount: number;
+  stopPrice: number | undefined;
+  riskAmount: number | undefined;
   scoreAtEntry: number | null;
   regime: string | null;
   conviction: string;
@@ -59,8 +59,8 @@ export class TradeManager {
     const latestScore = this.queries.getLatestScoreForSymbol(input.symbol);
     const latestMBI = this.queries.getLatestMBI();
 
-    const riskPerShare = input.entryPrice - input.stopPrice;
-    const riskAmount = riskPerShare * input.shares;
+    const riskPerShare = input.stopPrice !== undefined ? input.entryPrice - input.stopPrice : 0;
+    const riskAmount = input.stopPrice !== undefined ? riskPerShare * input.shares : undefined;
 
     const data: InsertTradeData = {
       symbol: input.symbol,
@@ -69,7 +69,7 @@ export class TradeManager {
       entryPrice: input.entryPrice,
       shares: input.shares,
       stopPrice: input.stopPrice,
-      riskAmount,
+      riskAmount: riskAmount ?? undefined,
       scoreAtEntry: latestScore?.breakdown?.totalScore,
       scoreBreakdownJson: latestScore ? JSON.stringify(latestScore.breakdown) : undefined,
       marketRegimeAtEntry: latestMBI?.em != null ? undefined : undefined,
@@ -95,7 +95,7 @@ export class TradeManager {
       scoreAtEntry: latestScore?.breakdown?.totalScore ?? null,
       regime: data.marketRegimeAtEntry ?? null,
       conviction: input.conviction,
-    };
+    } as EntryResult;
   }
 
   exit(input: ExitInput): ExitResult {
