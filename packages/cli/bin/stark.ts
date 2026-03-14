@@ -180,6 +180,11 @@ async function main(): Promise<void> {
       await mbiAnalyzeCommand(commandArgs);
       break;
     }
+    case "cron": {
+      const { cronStartCommand } = await import("../src/commands/cron-start.js");
+      await cronStartCommand(commandArgs);
+      break;
+    }
     default:
       console.log(`Command "${command}" is not yet implemented.`);
       console.log(`Run \`stark --help\` for available commands.`);
