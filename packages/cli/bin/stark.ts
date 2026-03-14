@@ -24,6 +24,7 @@ const COMMANDS = [
   { name: "cron",        description: "Manage scheduled tasks and automation" },
   { name: "setup",       description: "Configure API keys for LLM and broker integrations" },
   { name: "logs",        description: "View and filter application logs" },
+  { name: "mbi-analyze", description: "Analyze MBI-score correlation and regime history" },
 ];
 
 function printHelp(): void {
@@ -172,6 +173,11 @@ async function main(): Promise<void> {
     case "logs": {
       const { logsCommand } = await import("../src/commands/logs.js");
       await logsCommand(commandArgs);
+      break;
+    }
+    case "mbi-analyze": {
+      const { mbiAnalyzeCommand } = await import("../src/commands/mbi-analyze.js");
+      await mbiAnalyzeCommand(commandArgs);
       break;
     }
     default:

@@ -627,6 +627,18 @@ export class Queries {
     return this.getLatestMBI();
   }
 
+  /**
+   * Get MBI history for the last N days, ordered by date ascending.
+   */
+  getMBIHistory(days: number): MBIData[] {
+    const rows = this.db.query<MBIDailyRow>(
+      `SELECT * FROM mbi_daily ORDER BY date DESC LIMIT ?`,
+      [days],
+    );
+    // Reverse to ascending order
+    return rows.reverse().map(rowToMBIData);
+  }
+
   // --- Market Context ---
 
   upsertMarketContext(ctx: MarketContext): void {
@@ -779,6 +791,26 @@ export class Queries {
       [symbol]
     );
     return row ? rowToTradeJournal(row) : null;
+  }
+
+  /**
+   * Get average total scores per day, ordered by date ascending.
+   * Groups by created_at date and averages total_score across all stocks scored that day.
+   */
+  getDailyAverageScores(days: number): Array<{ date: string; avgScore: number; count: number }> {
+    const rows = this.db.query<{ date: string; avg_score: number; cnt: number }>(
+      `SELECT DATE(created_at) AS date, AVG(total_score) AS avg_score, COUNT(*) AS cnt
+       FROM stock_scores
+       GROUP BY DATE(created_at)
+       ORDER BY date DESC
+       LIMIT ?`,
+      [days],
+    );
+    return rows.reverse().map((r) => ({
+      date: r.date,
+      avgScore: r.avg_score,
+      count: r.cnt,
+    }));
   }
 
   getLatestScoreForSymbol(symbol: string): StockScore | null {
