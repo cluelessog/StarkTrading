@@ -1,13 +1,38 @@
 import { logger } from '@stark/core/log/index.js';
+import { classifyRegimeFull } from '@stark/core/mbi/regime-classifier.js';
 import { createCommandContext } from '../utils/command-context.js';
 
 export async function morningCommand(_args: string[]): Promise<void> {
   const startTime = Date.now();
-  const { db, provider, llmService } = await createCommandContext();
+  const { db, queries, provider, llmService, mbiManager } = await createCommandContext();
 
   console.log('=== Morning Workflow ===\n');
 
-  // 1. Get focus list stocks
+  // 1. Check current MBI regime
+  let currentRegime: string | null = null;
+  try {
+    const mbiResult = await mbiManager.getLatestRegime();
+    const regimeResult = classifyRegimeFull(mbiResult.mbi);
+    currentRegime = regimeResult.regime;
+    console.log(`Current Regime: ${regimeResult.regime} (EM: ${mbiResult.mbi.em ?? 'N/A'}, source: ${mbiResult.source})`);
+
+    // Check for regime change from yesterday
+    const yesterdayCtx = queries.getLatestMarketContext();
+    if (yesterdayCtx && yesterdayCtx.mbiRegime && yesterdayCtx.mbiRegime !== regimeResult.regime) {
+      console.log(`  *** REGIME CHANGE: ${yesterdayCtx.mbiRegime} -> ${regimeResult.regime} ***`);
+      console.log(`  Review position sizing and focus list thresholds.`);
+    }
+    console.log('');
+  } catch {
+    console.log('MBI regime unavailable. Using last known context.\n');
+    const lastCtx = queries.getLatestMarketContext();
+    if (lastCtx?.mbiRegime) {
+      currentRegime = lastCtx.mbiRegime;
+      console.log(`Last known regime: ${lastCtx.mbiRegime} (${lastCtx.date})\n`);
+    }
+  }
+
+  // 2. Get focus list stocks
   const focusStocks = db.query<{
     symbol: string;
     token: string;
@@ -23,10 +48,10 @@ export async function morningCommand(_args: string[]): Promise<void> {
     return;
   }
 
-  console.log(`Checking ${focusStocks.length} focus stocks...\n`);
+  console.log(`Focus stocks (${focusStocks.length})${currentRegime ? ` | Regime: ${currentRegime}` : ''}:\n`);
   logger.info('workflow', 'morning_start', 'Morning workflow started', { focusCount: focusStocks.length });
 
-  // 2. Overnight news via Perplexity (if LLM enabled)
+  // 3. Overnight news via Perplexity (if LLM enabled)
   if (llmService) {
     const symbolList = focusStocks.map((s) => s.symbol).join(', ');
     try {
@@ -48,7 +73,7 @@ export async function morningCommand(_args: string[]): Promise<void> {
     from: 'news_fetch', to: 'quote_check', newsAvailable: !!llmService,
   });
 
-  // 3. Check quotes and gaps
+  // 4. Check quotes and gaps
   for (const stock of focusStocks) {
     try {
       const quote = await provider.fetchQuote(stock.symbol, stock.token);
@@ -56,13 +81,13 @@ export async function morningCommand(_args: string[]): Promise<void> {
         ? ((quote.open - quote.close) / quote.close) * 100
         : 0;
 
-      const gapFlag = Math.abs(gapPct) > 3 ? ' ⚠ GAP' : '';
+      const gapFlag = Math.abs(gapPct) > 3 ? ' !! GAP' : '';
       console.log(
         `  ${stock.symbol.padEnd(15)} Score: ${stock.total_score}  LTP: ${quote.ltp}  Gap: ${gapPct >= 0 ? '+' : ''}${gapPct.toFixed(1)}%${gapFlag}`,
       );
 
       if (Math.abs(gapPct) > 3) {
-        console.log(`    → Gap >3% detected. Re-validate setup before entry.`);
+        console.log(`    -> Gap >3% detected. Re-validate setup before entry.`);
       }
     } catch (err) {
       console.log(`  ${stock.symbol.padEnd(15)} Error: ${(err as Error).message}`);
