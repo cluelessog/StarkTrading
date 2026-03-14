@@ -13,9 +13,9 @@ export interface ScoringContext {
   completedAt?: number;
 }
 
-export function createScoringContext(symbols: string[]): ScoringContext {
+export function createScoringContext(symbols: string[], sessionId?: string): ScoringContext {
   return {
-    sessionId: randomUUID(),
+    sessionId: sessionId ?? randomUUID(),
     startedAt: Date.now(),
     symbols,
     apiCalls: {},

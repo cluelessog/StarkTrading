@@ -1,6 +1,8 @@
+import { logger } from '@stark/core/log/index.js';
 import { createCommandContext } from '../utils/command-context.js';
 
 export async function morningCommand(_args: string[]): Promise<void> {
+  const startTime = Date.now();
   const { db, provider, llmService } = await createCommandContext();
 
   console.log('=== Morning Workflow ===\n');
@@ -22,6 +24,7 @@ export async function morningCommand(_args: string[]): Promise<void> {
   }
 
   console.log(`Checking ${focusStocks.length} focus stocks...\n`);
+  logger.info('workflow', 'morning_start', 'Morning workflow started', { focusCount: focusStocks.length });
 
   // 2. Overnight news via Perplexity (if LLM enabled)
   if (llmService) {
@@ -40,6 +43,10 @@ export async function morningCommand(_args: string[]): Promise<void> {
       console.log('(Overnight news unavailable)\n');
     }
   }
+
+  logger.info('workflow', 'state_change', 'Workflow: news_fetch -> quote_check', {
+    from: 'news_fetch', to: 'quote_check', newsAvailable: !!llmService,
+  });
 
   // 3. Check quotes and gaps
   for (const stock of focusStocks) {
@@ -63,4 +70,9 @@ export async function morningCommand(_args: string[]): Promise<void> {
   }
 
   console.log('\nDone. Review any flagged stocks before trading.');
+
+  logger.info('workflow', 'morning_complete', 'Morning workflow complete', {
+    totalDuration_ms: Date.now() - startTime,
+    focusCount: focusStocks.length,
+  });
 }

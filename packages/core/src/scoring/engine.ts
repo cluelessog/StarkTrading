@@ -196,11 +196,12 @@ export class ScoringEngine {
 
   async scoreBatch(
     symbols: Array<{ symbol: string; token: string; name: string }>,
+    runId?: string,
   ): Promise<{
     results: ScoreResult[];
     context: ScoringContext;
   }> {
-    const context = createScoringContext(symbols.map((s) => s.symbol));
+    const context = createScoringContext(symbols.map((s) => s.symbol), runId);
     const results: ScoreResult[] = [];
 
     for (const { symbol, token, name } of symbols) {
