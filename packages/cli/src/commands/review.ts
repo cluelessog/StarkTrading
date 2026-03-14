@@ -1,5 +1,6 @@
 import { createDatabase } from '@stark/core/db/index.js';
 import { createDefaultRegistry } from '@stark/core/scoring/registry.js';
+import { logger } from '@stark/core/log/index.js';
 import {
   askYesNo,
   askGraduated,
@@ -75,6 +76,9 @@ export async function reviewCommand(args: string[]): Promise<void> {
     return;
   }
 
+  logger.info('workflow', 'review_start', 'Review workflow started', { candidates: toReview.length });
+
+  let overrideTotal = 0;
   for (const stock of toReview) {
     console.log(`\n${'='.repeat(60)}`);
     console.log(`OVERRIDE REVIEW: ${stock.symbol} — ${stock.name}`);
@@ -183,10 +187,16 @@ export async function reviewCommand(args: string[]): Promise<void> {
         ],
       );
       console.log(`  Saved overrides to database.\n`);
+      overrideTotal += overrideCount;
     } else {
       console.log(`  No overrides. Score unchanged.\n`);
     }
   }
+
+  logger.info('workflow', 'review_complete', 'Review complete', {
+    reviewed: toReview.length,
+    overrides: overrideTotal,
+  });
 
   closePrompts();
 }

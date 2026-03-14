@@ -1,8 +1,10 @@
 import { MBIDataManager } from '@stark/core/mbi/data-manager.js';
 import { generateFocusList } from '@stark/core/mbi/focus-list.js';
+import { logger } from '@stark/core/log/index.js';
 import { createCommandContext } from '../utils/command-context.js';
 
 export async function eveningCommand(_args: string[]): Promise<void> {
+  const startTime = Date.now();
   const { config, db, queries, engine } = await createCommandContext();
   const registry = engine.getRegistry();
 
@@ -15,6 +17,7 @@ export async function eveningCommand(_args: string[]): Promise<void> {
     return;
   }
   console.log(`Watchlist: ${stocks.length} Priority 0 stocks`);
+  logger.info('workflow', 'evening_start', 'Evening workflow started', { stockCount: stocks.length });
 
   // 2. Score batch (auto-auth + LLM handled by CommandContext)
   const symbols = stocks.map((s) => ({
@@ -24,7 +27,22 @@ export async function eveningCommand(_args: string[]): Promise<void> {
   }));
 
   console.log(`Scoring ${symbols.length} stocks...\n`);
-  const { results, context } = await engine.scoreBatch(symbols);
+  const { results, context } = await engine.scoreBatch(symbols, logger.getRunId());
+
+  logger.info('scoring', 'batch_summary', `Scored ${results.length} stocks`, {
+    stocks: results.length,
+    scored: results.filter(r => r.status === 'COMPLETE').length,
+    errors: context.errors.length,
+    apiCalls: context.apiCalls,
+    cacheHits: context.cacheHits,
+    cacheMisses: context.cacheMisses,
+    duration_ms: (context.completedAt ?? Date.now()) - context.startedAt,
+  });
+
+  logger.info('workflow', 'state_change', 'Workflow: scoring_batch -> market_regime', {
+    from: 'scoring_batch', to: 'market_regime', scored: results.length,
+    duration_ms: (context.completedAt ?? Date.now()) - context.startedAt,
+  });
 
   // 3. Market regime
   const mbiManager = new MBIDataManager(db, { sheetId: config.sheetId });
@@ -36,7 +54,12 @@ export async function eveningCommand(_args: string[]): Promise<void> {
   } catch {
     regime = 'CAUTIOUS' as const;
     console.log('Market: CAUTIOUS (default — MBI unavailable)');
+    logger.warn('workflow', 'mbi_unavailable', 'MBI data unavailable, defaulting to CAUTIOUS');
   }
+
+  logger.info('workflow', 'state_change', 'Workflow: market_regime -> focus_generation', {
+    from: 'market_regime', to: 'focus_generation', regime,
+  });
 
   // 4. Focus list
   const focusList = generateFocusList(db, regime, registry);
@@ -71,4 +94,10 @@ export async function eveningCommand(_args: string[]): Promise<void> {
   if (context.errors.length > 0) {
     console.log(`Errors: ${context.errors.length}`);
   }
+
+  logger.info('workflow', 'evening_complete', 'Evening workflow complete', {
+    totalDuration_ms: Date.now() - startTime,
+    scored: results.length,
+    focusCount: focusList.stocks.length,
+  });
 }
