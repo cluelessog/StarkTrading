@@ -1,5 +1,8 @@
 #!/usr/bin/env bun
 
+import { logger, generateRunId } from '@stark/core/log/index.js';
+import type { LogLevel } from '@stark/core/log/logger.js';
+
 const VERSION = "0.1.0";
 
 const COMMANDS = [
@@ -20,6 +23,7 @@ const COMMANDS = [
   { name: "evolve",      description: "Show scoring evolution and factor edges" },
   { name: "cron",        description: "Manage scheduled tasks and automation" },
   { name: "setup",       description: "Configure API keys for LLM and broker integrations" },
+  { name: "logs",        description: "View and filter application logs" },
 ];
 
 function printHelp(): void {
@@ -39,6 +43,8 @@ function printHelp(): void {
   console.log("OPTIONS:");
   console.log("  --help, -h     Show help for a command");
   console.log("  --version, -v  Show version");
+  console.log("  --verbose      Show DEBUG-level output");
+  console.log("  --quiet        Suppress INFO-level output");
   console.log("");
   console.log("Run `stark <command> --help` for command-specific help.");
 }
@@ -60,8 +66,20 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  // Global flags (extracted before command routing)
+  const verbose = args.includes('--verbose');
+  const quiet = args.includes('--quiet');
+
+  // Initialize logger after --help/--version early exits
+  const logLevel = process.env.LOG_LEVEL?.toUpperCase() as LogLevel | undefined;
+  const consoleLevel = logLevel ?? (verbose ? 'DEBUG' : quiet ? 'WARN' : 'INFO');
+  logger.init({ consoleLevel });
+  logger.setRunId(generateRunId());
+  logger.rotateLogs(14);
+
   const command = args[0];
-  const commandArgs = args.slice(1);
+  // Strip global flags from args passed to commands
+  const commandArgs = args.slice(1).filter(a => !['--verbose', '--quiet'].includes(a));
   const known = COMMANDS.find((c) => c.name === command);
 
   if (!known) {
@@ -149,6 +167,11 @@ async function main(): Promise<void> {
     case "setup": {
       const { setupCommand } = await import("../src/commands/setup.js");
       await setupCommand(commandArgs);
+      break;
+    }
+    case "logs": {
+      const { logsCommand } = await import("../src/commands/logs.js");
+      await logsCommand(commandArgs);
       break;
     }
     default:

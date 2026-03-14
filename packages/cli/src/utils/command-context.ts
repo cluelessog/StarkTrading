@@ -4,11 +4,13 @@ import { SessionManager } from '@stark/core/auth/index.js';
 import { LLMServiceImpl } from '@stark/core/llm/index.js';
 import { ScoringEngine } from '@stark/core/scoring/engine.js';
 import { createDefaultRegistry } from '@stark/core/scoring/registry.js';
+import { logger } from '@stark/core/log/index.js';
 import type { StarkConfig } from '@stark/core/config/index.js';
 import type { DatabaseAdapter } from '@stark/core/db/adapter.js';
 import type { Queries } from '@stark/core/db/queries.js';
 import type { DataProvider } from '@stark/core/api/data-provider.js';
 import type { LLMService } from '@stark/core/llm/index.js';
+import type { Logger } from '@stark/core/log/logger.js';
 
 export interface CommandContext {
   config: StarkConfig;
@@ -17,6 +19,7 @@ export interface CommandContext {
   provider: DataProvider;
   llmService: LLMService | null;
   engine: ScoringEngine;
+  logger: Logger;
 }
 
 /**
@@ -41,5 +44,5 @@ export async function createCommandContext(): Promise<CommandContext> {
   const registry = createDefaultRegistry();
   const engine = new ScoringEngine(provider, db, registry, llmService ?? undefined);
 
-  return { config, db, queries, provider, llmService, engine };
+  return { config, db, queries, provider, llmService, engine, logger };
 }
