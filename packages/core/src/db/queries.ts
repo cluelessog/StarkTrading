@@ -847,4 +847,49 @@ export class Queries {
     );
     return row?.value ?? null;
   }
+
+  // --- Chat Sessions ---
+
+  insertChatMessage(chatId: string, platform: string, role: 'user' | 'assistant', message: string): void {
+    this.db.execute(
+      `INSERT INTO chat_sessions (chat_id, platform, role, message) VALUES (?, ?, ?, ?)`,
+      [chatId, platform, role, message],
+    );
+  }
+
+  getRecentChatMessages(chatId: string, limit: number = 10): Array<{ role: string; message: string; createdAt: string }> {
+    const rows = this.db.query<{ role: string; message: string; created_at: string }>(
+      `SELECT role, message, created_at FROM chat_sessions
+       WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
+      [chatId, limit],
+    );
+    return rows.reverse().map((r) => ({ role: r.role, message: r.message, createdAt: r.created_at }));
+  }
+
+  trimChatHistory(chatId: string, keepLast: number): void {
+    this.db.execute(
+      `DELETE FROM chat_sessions WHERE chat_id = ? AND id NOT IN (
+        SELECT id FROM chat_sessions WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT ?
+      )`,
+      [chatId, chatId, keepLast],
+    );
+  }
+
+  // --- Automation Log ---
+
+  insertAutomationLog(action: string, status: 'success' | 'failure' | 'skipped', details?: string, triggeredBy?: string): void {
+    this.db.execute(
+      `INSERT INTO automation_log (action, status, details, triggered_by) VALUES (?, ?, ?, ?)`,
+      [action, status, details ?? null, triggeredBy ?? 'scheduler'],
+    );
+  }
+
+  getAutomationLogs(limit: number = 50): Array<{ action: string; status: string; details: string | null; triggeredBy: string; createdAt: string }> {
+    const rows = this.db.query<{ action: string; status: string; details: string | null; triggered_by: string; created_at: string }>(
+      `SELECT action, status, details, triggered_by, created_at FROM automation_log
+       ORDER BY created_at DESC LIMIT ?`,
+      [limit],
+    );
+    return rows.map((r) => ({ action: r.action, status: r.status, details: r.details, triggeredBy: r.triggered_by, createdAt: r.created_at }));
+  }
 }

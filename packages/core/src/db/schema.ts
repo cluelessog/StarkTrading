@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export interface Migration {
   version: number;
@@ -220,6 +220,36 @@ CREATE TABLE IF NOT EXISTS api_usage (
   call_count INTEGER NOT NULL DEFAULT 0,
   UNIQUE(date, service)
 );
+    `.trim(),
+  },
+  {
+    version: 2,
+    sql: `
+-- Automation Log
+CREATE TABLE IF NOT EXISTS automation_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'skipped')),
+  details TEXT,
+  triggered_by TEXT NOT NULL DEFAULT 'scheduler',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_automation_log_created
+  ON automation_log(created_at);
+
+-- Chat Sessions
+CREATE TABLE IF NOT EXISTS chat_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id TEXT NOT NULL,
+  platform TEXT NOT NULL DEFAULT 'telegram',
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  message TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_chat_id
+  ON chat_sessions(chat_id, created_at);
     `.trim(),
   },
 ];

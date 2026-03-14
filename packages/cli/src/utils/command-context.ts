@@ -26,6 +26,12 @@ export interface CommandContext {
   mbiManager: MBIDataManager;
 }
 
+export interface PersistentCommandContext extends CommandContext {
+  dispose(): void;
+  refreshAuth(): Promise<void>;
+  isHealthy(): boolean;
+}
+
 /**
  * Create a fully-initialized command context.
  * Handles config loading, database creation, authentication, LLM setup, and engine creation.
@@ -61,4 +67,77 @@ export async function createCommandContext(): Promise<CommandContext> {
   );
 
   return { config, db, queries, provider, llmService, engine, logger, mbiManager };
+}
+
+/**
+ * Create a persistent command context for long-running processes (bot, scheduler).
+ * Caches all dependencies and supports re-authentication and health checks.
+ */
+export async function createPersistentCommandContext(): Promise<PersistentCommandContext> {
+  const config = loadConfig();
+  const { db, queries } = createDatabase();
+  const sessionManager = new SessionManager();
+
+  let provider = await sessionManager.ensureAuthenticated(config);
+
+  let llmService: LLMService | null = null;
+  if (config.llm?.enabled && (config.llm.anthropicKey || config.llm.geminiKey || config.llm.perplexityKey)) {
+    llmService = new LLMServiceImpl(config.llm, db);
+  }
+
+  const registry = createDefaultRegistry();
+  const nifty50 = getNifty50Constituents();
+
+  let engine = new ScoringEngine(provider, db, registry, llmService ?? undefined);
+  let breadthCalc = new BreadthCalculator(provider, db, {
+    universe: 'NIFTY50',
+    nifty50Constituents: nifty50,
+  });
+  let mbiManager = new MBIDataManager(db, { sheetId: config.sheetId }, breadthCalc);
+
+  let disposed = false;
+
+  return {
+    config,
+    db,
+    queries,
+    provider,
+    llmService,
+    engine,
+    logger,
+    mbiManager,
+
+    dispose() {
+      if (!disposed) {
+        db.close();
+        disposed = true;
+      }
+    },
+
+    async refreshAuth() {
+      if (!provider.isAuthenticated()) {
+        provider = await sessionManager.ensureAuthenticated(config);
+        engine = new ScoringEngine(provider, db, registry, llmService ?? undefined);
+        breadthCalc = new BreadthCalculator(provider, db, {
+          universe: 'NIFTY50',
+          nifty50Constituents: nifty50,
+        });
+        mbiManager = new MBIDataManager(db, { sheetId: config.sheetId }, breadthCalc);
+        // Update the context references
+        (this as PersistentCommandContext).provider = provider;
+        (this as PersistentCommandContext).engine = engine;
+        (this as PersistentCommandContext).mbiManager = mbiManager;
+      }
+    },
+
+    isHealthy(): boolean {
+      if (disposed) return false;
+      try {
+        db.queryOne<{ ok: number }>('SELECT 1 AS ok');
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  };
 }

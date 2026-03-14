@@ -13,8 +13,10 @@ import { PerplexityClient, type ResearchResult } from './perplexity-client.js';
 export interface LLMService {
   analyzeOHLCV(prompt: string, bars: OHLCVBar[]): Promise<LLMAnalysisResult>;
   research(query: string): Promise<ResearchResult>;
+  complete(prompt: string): Promise<string>;
   canAnalyze(): boolean;
   canResearch(): boolean;
+  canComplete(): boolean;
   getAnalysisProvider(): string;
 }
 
@@ -53,10 +55,67 @@ export class LLMServiceImpl implements LLMService {
     return this.perplexity !== null;
   }
 
+  canComplete(): boolean {
+    return this.gemini !== null || this.claude !== null;
+  }
+
   getAnalysisProvider(): string {
     if (this.claude) return 'claude';
     if (this.gemini) return 'gemini';
     return 'none';
+  }
+
+  // Gemini-first (unlike analyzeOHLCV which is Claude-first) -- NLU classification is
+  // latency-sensitive and low-complexity, making Gemini 2.0 Flash the better choice for speed/cost.
+  async complete(prompt: string): Promise<string> {
+    if (!this.gemini && !this.claude) {
+      throw new Error('No LLM provider configured for complete()');
+    }
+
+    // Try Gemini first (faster/cheaper for text classification)
+    if (this.gemini) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.config.geminiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.1 },
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(`Gemini API error (${response.status})`);
+        }
+        const json = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+        return json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      } catch (geminiError) {
+        // Fall through to Claude if available
+        if (!this.claude) throw geminiError;
+      }
+    }
+
+    // Claude fallback
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.config.anthropicKey!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Claude API error (${response.status})`);
+    }
+
+    const json = (await response.json()) as { content?: Array<{ text?: string }> };
+    return json?.content?.[0]?.text ?? '';
   }
 
   async analyzeOHLCV(
