@@ -23,6 +23,10 @@ export async function eveningCommand(_args: string[]): Promise<void> {
     console.log(formatBreadthSummary(mbiResult.mbi));
     console.log('');
 
+    logger.info('mbi', 'regime_fetched', `Regime: ${regime}`, {
+      regime, em: mbiResult.mbi.em, source: mbiResult.source,
+    });
+
     // Store market context in DB
     const today = new Date().toISOString().slice(0, 10);
     queries.upsertMarketContext({
@@ -37,7 +41,7 @@ export async function eveningCommand(_args: string[]): Promise<void> {
     });
   } catch {
     console.log('Market: CAUTIOUS (default -- MBI unavailable)\n');
-    logger.warn('workflow', 'mbi_unavailable', 'MBI data unavailable, defaulting to CAUTIOUS');
+    logger.warn('mbi', 'mbi_unavailable', 'MBI data unavailable, defaulting to CAUTIOUS');
   }
 
   // 2. Get watchlist
@@ -47,7 +51,11 @@ export async function eveningCommand(_args: string[]): Promise<void> {
     return;
   }
   console.log(`Watchlist: ${stocks.length} Priority 0 stocks`);
-  logger.info('workflow', 'evening_start', 'Evening workflow started', { stockCount: stocks.length });
+  logger.info('workflow', 'evening_start', 'Evening workflow started', { stockCount: stocks.length, regime });
+
+  logger.info('workflow', 'state_change', 'Workflow: mbi_fetch -> scoring_batch', {
+    from: 'mbi_fetch', to: 'scoring_batch', regime, stockCount: stocks.length,
+  });
 
   // 3. Score batch (auto-auth + LLM handled by CommandContext)
   const symbols = stocks.map((s) => ({
@@ -77,6 +85,11 @@ export async function eveningCommand(_args: string[]): Promise<void> {
   // 4. Focus list (regime-aware thresholds)
   const focusParams = getFocusParams(regime);
   const focusList = generateFocusList(db, regime, registry);
+
+  logger.info('mbi', 'focus_generated', `Focus list: ${focusList.stocks.length} stocks`, {
+    regime, threshold: focusParams.threshold, maxStocks: focusParams.maxStocks,
+    focusCount: focusList.stocks.length,
+  });
 
   // 5. Summary
   console.log('\n--- Summary ---');

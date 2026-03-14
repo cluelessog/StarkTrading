@@ -1,5 +1,6 @@
 import { classifyRegimeFull } from '@stark/core/mbi/regime-classifier.js';
 import { formatMBIDashboard } from '@stark/core/mbi/format.js';
+import { logger } from '@stark/core/log/index.js';
 import { createCommandContext } from '../utils/command-context.js';
 
 export async function marketCommand(_args: string[]): Promise<void> {
@@ -13,6 +14,10 @@ export async function marketCommand(_args: string[]): Promise<void> {
 
     console.log(formatMBIDashboard(mbi, regimeResult));
     console.log(`\nData source: ${source}`);
+
+    logger.info('mbi', 'market_dashboard', `Market dashboard: ${regime}`, {
+      regime, em: mbi.em, source,
+    });
 
     // LLM market narrative
     if (llmService) {

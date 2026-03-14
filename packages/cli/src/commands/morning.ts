@@ -16,15 +16,23 @@ export async function morningCommand(_args: string[]): Promise<void> {
     currentRegime = regimeResult.regime;
     console.log(`Current Regime: ${regimeResult.regime} (EM: ${mbiResult.mbi.em ?? 'N/A'}, source: ${mbiResult.source})`);
 
+    logger.info('mbi', 'regime_fetched', `Regime: ${regimeResult.regime}`, {
+      regime: regimeResult.regime, em: mbiResult.mbi.em, source: mbiResult.source,
+    });
+
     // Check for regime change from yesterday
     const yesterdayCtx = queries.getLatestMarketContext();
     if (yesterdayCtx && yesterdayCtx.mbiRegime && yesterdayCtx.mbiRegime !== regimeResult.regime) {
       console.log(`  *** REGIME CHANGE: ${yesterdayCtx.mbiRegime} -> ${regimeResult.regime} ***`);
       console.log(`  Review position sizing and focus list thresholds.`);
+      logger.warn('mbi', 'regime_change', `Regime changed: ${yesterdayCtx.mbiRegime} -> ${regimeResult.regime}`, {
+        from: yesterdayCtx.mbiRegime, to: regimeResult.regime,
+      });
     }
     console.log('');
   } catch {
     console.log('MBI regime unavailable. Using last known context.\n');
+    logger.warn('mbi', 'mbi_unavailable', 'MBI regime unavailable, using last known context');
     const lastCtx = queries.getLatestMarketContext();
     if (lastCtx?.mbiRegime) {
       currentRegime = lastCtx.mbiRegime;
@@ -49,7 +57,11 @@ export async function morningCommand(_args: string[]): Promise<void> {
   }
 
   console.log(`Focus stocks (${focusStocks.length})${currentRegime ? ` | Regime: ${currentRegime}` : ''}:\n`);
-  logger.info('workflow', 'morning_start', 'Morning workflow started', { focusCount: focusStocks.length });
+  logger.info('workflow', 'morning_start', 'Morning workflow started', { focusCount: focusStocks.length, regime: currentRegime });
+
+  logger.info('workflow', 'state_change', 'Workflow: regime_check -> news_fetch', {
+    from: 'regime_check', to: 'news_fetch', regime: currentRegime,
+  });
 
   // 3. Overnight news via Perplexity (if LLM enabled)
   if (llmService) {
