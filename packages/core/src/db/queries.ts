@@ -2,7 +2,7 @@ import type { DatabaseAdapter } from './adapter';
 import type { WatchlistStock, WatchlistPriority } from '../models/stock';
 import type { OHLCVBar } from '../models/intervals';
 import type { StockScore, ScoreBreakdown } from '../models/score';
-import type { MBIData, MBISource } from '../models/market';
+import type { MBIData, MBISource, MBIRegime, MarketContext } from '../models/market';
 
 // ---------------------------------------------------------------------------
 // Row shapes returned from SQLite (snake_case columns)
@@ -104,6 +104,18 @@ interface TradeJournalRow {
   conviction: string | null;
   override_count: number;
   status: 'OPEN' | 'CLOSED';
+  created_at: string;
+}
+
+interface MarketContextRow {
+  id: number;
+  date: string;
+  nifty_close: number | null;
+  nifty_50dma: number | null;
+  nifty_200dma: number | null;
+  mbi_regime: string | null;
+  mbi_em: number | null;
+  mbi_source: string | null;
   created_at: string;
 }
 
@@ -370,6 +382,20 @@ function rowToPosition(row: PositionRow): Position {
   };
 }
 
+function rowToMarketContext(row: MarketContextRow): MarketContext {
+  return {
+    id: row.id,
+    date: row.date,
+    niftyClose: row.nifty_close ?? 0,
+    nifty50DMA: row.nifty_50dma ?? 0,
+    nifty200DMA: row.nifty_200dma ?? 0,
+    mbiRegime: (row.mbi_regime as MBIRegime) ?? undefined,
+    mbiEm: row.mbi_em,
+    mbiSource: (row.mbi_source as MBISource) ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Queries class
 // ---------------------------------------------------------------------------
@@ -594,6 +620,51 @@ export class Queries {
       `SELECT * FROM mbi_daily ORDER BY date DESC, fetched_at DESC LIMIT 1`
     );
     return row ? rowToMBIData(row) : null;
+  }
+
+  /** Alias for getLatestMBI — used by stale_cache fallback. */
+  getLatestMBIDaily(): MBIData | null {
+    return this.getLatestMBI();
+  }
+
+  // --- Market Context ---
+
+  upsertMarketContext(ctx: MarketContext): void {
+    this.db.execute(
+      `INSERT INTO market_context (date, nifty_close, nifty_50dma, nifty_200dma, mbi_regime, mbi_em, mbi_source)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(date) DO UPDATE SET
+         nifty_close = excluded.nifty_close,
+         nifty_50dma = excluded.nifty_50dma,
+         nifty_200dma = excluded.nifty_200dma,
+         mbi_regime = excluded.mbi_regime,
+         mbi_em = excluded.mbi_em,
+         mbi_source = excluded.mbi_source`,
+      [
+        ctx.date,
+        ctx.niftyClose,
+        ctx.nifty50DMA,
+        ctx.nifty200DMA,
+        ctx.mbiRegime ?? null,
+        ctx.mbiEm ?? null,
+        ctx.mbiSource ?? null,
+      ],
+    );
+  }
+
+  getMarketContextForDate(date: string): MarketContext | null {
+    const row = this.db.queryOne<MarketContextRow>(
+      `SELECT * FROM market_context WHERE date = ?`,
+      [date],
+    );
+    return row ? rowToMarketContext(row) : null;
+  }
+
+  getLatestMarketContext(): MarketContext | null {
+    const row = this.db.queryOne<MarketContextRow>(
+      `SELECT * FROM market_context ORDER BY date DESC LIMIT 1`,
+    );
+    return row ? rowToMarketContext(row) : null;
   }
 
   // --- API Usage ---
