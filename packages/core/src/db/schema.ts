@@ -102,6 +102,9 @@ CREATE TABLE IF NOT EXISTS sector_money_flow (
   captured_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- TODO(intraday-seam-5): For intraday sector rotation (Phase 5), this unique index
+-- prevents multiple snapshots per sector per day. Drop or modify when implementing
+-- intraday sector polling.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sector_money_flow_sector_date
   ON sector_money_flow(sector, date(captured_at));
 
