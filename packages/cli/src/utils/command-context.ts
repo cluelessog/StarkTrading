@@ -5,6 +5,9 @@ import { LLMServiceImpl } from '@stark/core/llm/index.js';
 import { ScoringEngine } from '@stark/core/scoring/engine.js';
 import { createDefaultRegistry } from '@stark/core/scoring/registry.js';
 import { logger } from '@stark/core/log/index.js';
+import { MBIDataManager } from '@stark/core/mbi/data-manager.js';
+import { getNifty50Constituents } from '@stark/core/market/nifty-constituents.js';
+import { BreadthCalculator } from '@stark/core/market/breadth-calculator.js';
 import type { StarkConfig } from '@stark/core/config/index.js';
 import type { DatabaseAdapter } from '@stark/core/db/adapter.js';
 import type { Queries } from '@stark/core/db/queries.js';
@@ -20,6 +23,7 @@ export interface CommandContext {
   llmService: LLMService | null;
   engine: ScoringEngine;
   logger: Logger;
+  mbiManager: MBIDataManager;
 }
 
 /**
@@ -44,5 +48,17 @@ export async function createCommandContext(): Promise<CommandContext> {
   const registry = createDefaultRegistry();
   const engine = new ScoringEngine(provider, db, registry, llmService ?? undefined);
 
-  return { config, db, queries, provider, llmService, engine, logger };
+  // MBI data manager with breadth calculator fallback
+  const nifty50 = getNifty50Constituents();
+  const breadthCalc = new BreadthCalculator(provider, db, {
+    universe: 'NIFTY50',
+    nifty50Constituents: nifty50,
+  });
+  const mbiManager = new MBIDataManager(
+    db,
+    { sheetId: config.sheetId },
+    breadthCalc,
+  );
+
+  return { config, db, queries, provider, llmService, engine, logger, mbiManager };
 }

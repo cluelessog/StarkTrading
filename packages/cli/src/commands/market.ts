@@ -1,31 +1,18 @@
-import { MBIDataManager } from '@stark/core/mbi/data-manager.js';
+import { classifyRegimeFull } from '@stark/core/mbi/regime-classifier.js';
+import { formatMBIDashboard } from '@stark/core/mbi/format.js';
 import { createCommandContext } from '../utils/command-context.js';
 
 export async function marketCommand(_args: string[]): Promise<void> {
-  const { config, db, llmService } = await createCommandContext();
-
-  const manager = new MBIDataManager(db, {
-    sheetId: config.sheetId,
-  });
+  const { llmService, mbiManager } = await createCommandContext();
 
   console.log('=== Market Context ===\n');
 
   try {
-    const { regime, mbi, source } = await manager.getLatestRegime();
+    const { regime, mbi, source } = await mbiManager.getLatestRegime();
+    const regimeResult = classifyRegimeFull(mbi);
 
-    console.log(`Regime: ${regime}`);
-    console.log(`EM: ${mbi.em ?? 'N/A'}`);
-    console.log(`Source: ${source}`);
-    console.log(`Date: ${mbi.date}`);
-    console.log(`Freshness: ${mbi.dataFreshness}`);
-    console.log('');
-
-    if (mbi.pct52WH || mbi.pct52WL) {
-      console.log('Breadth:');
-      if (mbi.pct52WH) console.log(`  52W High %: ${mbi.pct52WH}`);
-      if (mbi.pct52WL) console.log(`  52W Low %: ${mbi.pct52WL}`);
-      if (mbi.pctAbove200SMA) console.log(`  > 200 SMA %: ${mbi.pctAbove200SMA}`);
-    }
+    console.log(formatMBIDashboard(mbi, regimeResult));
+    console.log(`\nData source: ${source}`);
 
     // LLM market narrative
     if (llmService) {

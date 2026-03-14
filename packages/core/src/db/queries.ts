@@ -2,7 +2,7 @@ import type { DatabaseAdapter } from './adapter';
 import type { WatchlistStock, WatchlistPriority } from '../models/stock';
 import type { OHLCVBar } from '../models/intervals';
 import type { StockScore, ScoreBreakdown } from '../models/score';
-import type { MBIData, MBISource } from '../models/market';
+import type { MBIData, MBISource, MBIRegime, MarketContext } from '../models/market';
 
 // ---------------------------------------------------------------------------
 // Row shapes returned from SQLite (snake_case columns)
@@ -104,6 +104,18 @@ interface TradeJournalRow {
   conviction: string | null;
   override_count: number;
   status: 'OPEN' | 'CLOSED';
+  created_at: string;
+}
+
+interface MarketContextRow {
+  id: number;
+  date: string;
+  nifty_close: number | null;
+  nifty_50dma: number | null;
+  nifty_200dma: number | null;
+  mbi_regime: string | null;
+  mbi_em: number | null;
+  mbi_source: string | null;
   created_at: string;
 }
 
@@ -370,6 +382,20 @@ function rowToPosition(row: PositionRow): Position {
   };
 }
 
+function rowToMarketContext(row: MarketContextRow): MarketContext {
+  return {
+    id: row.id,
+    date: row.date,
+    niftyClose: row.nifty_close ?? 0,
+    nifty50DMA: row.nifty_50dma ?? 0,
+    nifty200DMA: row.nifty_200dma ?? 0,
+    mbiRegime: (row.mbi_regime as MBIRegime) ?? undefined,
+    mbiEm: row.mbi_em,
+    mbiSource: (row.mbi_source as MBISource) ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Queries class
 // ---------------------------------------------------------------------------
@@ -596,6 +622,63 @@ export class Queries {
     return row ? rowToMBIData(row) : null;
   }
 
+  /** Alias for getLatestMBI — used by stale_cache fallback. */
+  getLatestMBIDaily(): MBIData | null {
+    return this.getLatestMBI();
+  }
+
+  /**
+   * Get MBI history for the last N days, ordered by date ascending.
+   */
+  getMBIHistory(days: number): MBIData[] {
+    const rows = this.db.query<MBIDailyRow>(
+      `SELECT * FROM mbi_daily ORDER BY date DESC LIMIT ?`,
+      [days],
+    );
+    // Reverse to ascending order
+    return rows.reverse().map(rowToMBIData);
+  }
+
+  // --- Market Context ---
+
+  upsertMarketContext(ctx: MarketContext): void {
+    this.db.execute(
+      `INSERT INTO market_context (date, nifty_close, nifty_50dma, nifty_200dma, mbi_regime, mbi_em, mbi_source)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(date) DO UPDATE SET
+         nifty_close = excluded.nifty_close,
+         nifty_50dma = excluded.nifty_50dma,
+         nifty_200dma = excluded.nifty_200dma,
+         mbi_regime = excluded.mbi_regime,
+         mbi_em = excluded.mbi_em,
+         mbi_source = excluded.mbi_source`,
+      [
+        ctx.date,
+        ctx.niftyClose,
+        ctx.nifty50DMA,
+        ctx.nifty200DMA,
+        ctx.mbiRegime ?? null,
+        ctx.mbiEm ?? null,
+        ctx.mbiSource ?? null,
+      ],
+    );
+  }
+
+  getMarketContextForDate(date: string): MarketContext | null {
+    const row = this.db.queryOne<MarketContextRow>(
+      `SELECT * FROM market_context WHERE date = ?`,
+      [date],
+    );
+    return row ? rowToMarketContext(row) : null;
+  }
+
+  getLatestMarketContext(): MarketContext | null {
+    const row = this.db.queryOne<MarketContextRow>(
+      `SELECT * FROM market_context ORDER BY date DESC LIMIT 1`,
+    );
+    return row ? rowToMarketContext(row) : null;
+  }
+
   // --- API Usage ---
 
   upsertApiUsage(date: string, service: string, count: number): void {
@@ -708,6 +791,26 @@ export class Queries {
       [symbol]
     );
     return row ? rowToTradeJournal(row) : null;
+  }
+
+  /**
+   * Get average total scores per day, ordered by date ascending.
+   * Groups by created_at date and averages total_score across all stocks scored that day.
+   */
+  getDailyAverageScores(days: number): Array<{ date: string; avgScore: number; count: number }> {
+    const rows = this.db.query<{ date: string; avg_score: number; cnt: number }>(
+      `SELECT DATE(created_at) AS date, AVG(total_score) AS avg_score, COUNT(*) AS cnt
+       FROM stock_scores
+       GROUP BY DATE(created_at)
+       ORDER BY date DESC
+       LIMIT ?`,
+      [days],
+    );
+    return rows.reverse().map((r) => ({
+      date: r.date,
+      avgScore: r.avg_score,
+      count: r.cnt,
+    }));
   }
 
   getLatestScoreForSymbol(symbol: string): StockScore | null {
