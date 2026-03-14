@@ -25,6 +25,7 @@ const COMMANDS = [
   { name: "setup",       description: "Configure API keys for LLM and broker integrations" },
   { name: "logs",        description: "View and filter application logs" },
   { name: "mbi-analyze", description: "Analyze MBI-score correlation and regime history" },
+  { name: "sync",        description: "Sync broker positions with trade journal" },
 ];
 
 function printHelp(): void {
@@ -178,6 +179,11 @@ async function main(): Promise<void> {
     case "mbi-analyze": {
       const { mbiAnalyzeCommand } = await import("../src/commands/mbi-analyze.js");
       await mbiAnalyzeCommand(commandArgs);
+      break;
+    }
+    case "sync": {
+      const { syncCommand } = await import("../src/commands/sync.js");
+      await syncCommand(commandArgs);
       break;
     }
     default:

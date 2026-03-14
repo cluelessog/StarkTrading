@@ -6,6 +6,7 @@ import type {
   Quote,
   SymbolSearchResult,
   InstrumentMaster,
+  BrokerPosition,
 } from './data-provider.js';
 import { DataProviderError } from './data-provider.js';
 import type { OHLCVBar, OHLCVInterval } from '../models/intervals.js';
@@ -332,6 +333,74 @@ export class AngelOneProvider implements DataProvider {
     }
 
     return instruments;
+  }
+
+  // --- Portfolio ---
+
+  // TODO: Verify the exact endpoint for holdings vs positions (getAllHolding vs getPosition)
+  async fetchPositions(): Promise<BrokerPosition[]> {
+    this.requireAuth();
+
+    let res: Response;
+    try {
+      res = await fetch(
+        `${BASE_URL}/rest/secure/angelbroking/portfolio/v1/getAllHolding`,
+        {
+          method: 'GET',
+          headers: this.authHeaders(),
+        },
+      );
+    } catch (err) {
+      throw new DataProviderError(
+        'network_error',
+        `Positions fetch network error: ${(err as Error).message}`,
+        err as Error,
+      );
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      throw new DataProviderError('auth_expired', 'Session expired');
+    }
+    if (res.status === 429) {
+      throw new DataProviderError('rate_limited', 'Rate limited');
+    }
+
+    const json = (await res.json()) as {
+      status: boolean;
+      message: string;
+      data?: {
+        holdings?: Array<{
+          tradingsymbol: string;
+          symboltoken: string;
+          exchange: string;
+          quantity: number;
+          averageprice: number;
+          ltp: number;
+          profitandloss: number;
+          product: string;
+        }>;
+      };
+    };
+
+    if (!json.status || !json.data?.holdings) {
+      throw new DataProviderError(
+        'data_unavailable',
+        `Positions fetch failed: ${json.message}`,
+      );
+    }
+
+    return json.data.holdings
+      .filter((h) => h.product === 'CNC')
+      .map((h) => ({
+        symbol: h.tradingsymbol,
+        token: h.symboltoken,
+        exchange: h.exchange,
+        quantity: h.quantity,
+        averagePrice: h.averageprice,
+        lastPrice: h.ltp,
+        pnl: h.profitandloss,
+        productType: h.product,
+      }));
   }
 
   // --- Private helpers ---
