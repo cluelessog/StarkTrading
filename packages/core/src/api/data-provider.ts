@@ -37,6 +37,17 @@ export interface Quote {
   timestamp: string;
 }
 
+export interface BrokerPosition {
+  symbol: string;
+  token: string;
+  exchange: string;
+  quantity: number;
+  averagePrice: number;
+  lastPrice: number;
+  pnl: number;
+  productType: string; // 'CNC' for delivery, 'INTRADAY' for intraday
+}
+
 export interface SymbolSearchResult {
   symbol: string;
   token: string;
@@ -87,4 +98,7 @@ export interface DataProvider {
   // Symbol resolution
   searchSymbol(query: string): Promise<SymbolSearchResult[]>;
   getInstrumentMaster(exchange?: string): Promise<InstrumentMaster[]>;
+
+  // Portfolio
+  fetchPositions(): Promise<BrokerPosition[]>;
 }

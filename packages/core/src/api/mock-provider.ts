@@ -3,6 +3,7 @@ import type {
   Quote,
   SymbolSearchResult,
   InstrumentMaster,
+  BrokerPosition,
 } from './data-provider.js';
 import type { OHLCVBar, OHLCVInterval } from '../models/intervals.js';
 
@@ -155,5 +156,12 @@ export class MockProvider implements DataProvider {
       return this.instruments.filter((i) => i.exchange === exchange);
     }
     return this.instruments;
+  }
+
+  async fetchPositions(): Promise<BrokerPosition[]> {
+    return [
+      { symbol: 'RELIANCE', token: '2885', exchange: 'NSE', quantity: 100, averagePrice: 2450, lastPrice: 2500, pnl: 5000, productType: 'CNC' },
+      { symbol: 'TCS', token: '11536', exchange: 'NSE', quantity: 50, averagePrice: 3800, lastPrice: 3850, pnl: 2500, productType: 'CNC' },
+    ];
   }
 }
