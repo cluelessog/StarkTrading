@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { classifyRegime, classifyFromBreadth } from '../src/mbi/regime-classifier.js';
-import type { MBIData } from '../src/models/market.js';
+import { classifyRegime, classifyFromBreadth, classifyRegimeFull, getFocusParams } from '../src/mbi/regime-classifier.js';
+import type { MBIData, EMThresholds } from '../src/models/market.js';
 
 describe('classifyRegime', () => {
   it('classifies STRONG_BULL when EM >= 25', () => {
@@ -73,5 +73,162 @@ describe('classifyFromBreadth', () => {
       pctAbove200SMA: 90,
     });
     expect(result).not.toBe('STRONG_BULL');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyRegimeFull
+// ---------------------------------------------------------------------------
+
+describe('classifyRegimeFull', () => {
+  const baseMBI: MBIData = {
+    date: '2026-03-11',
+    capturedAt: 'eod',
+    source: 'sheet',
+    em: null,
+    pct52WH: 0,
+    pct52WL: 0,
+    ratio4_5: 0,
+    fetchedAt: new Date().toISOString(),
+    dataFreshness: 'fresh',
+  };
+
+  it('uses EM thresholds when EM is available', () => {
+    const result = classifyRegimeFull({ ...baseMBI, em: 18.3 });
+    expect(result.regime).toBe('BULL');
+    expect(result.em).toBe(18.3);
+    expect(result.confidence).toBe('full');
+    expect(result.source).toBe('sheet');
+  });
+
+  it('classifies STRONG_BULL with high EM', () => {
+    const result = classifyRegimeFull({ ...baseMBI, em: 30 });
+    expect(result.regime).toBe('STRONG_BULL');
+    expect(result.confidence).toBe('full');
+  });
+
+  it('classifies BEAR with low EM', () => {
+    const result = classifyRegimeFull({ ...baseMBI, em: 5 });
+    expect(result.regime).toBe('BEAR');
+  });
+
+  it('EM boundary: 9.4 -> BEAR, 9.5 -> CHOPPY', () => {
+    expect(classifyRegimeFull({ ...baseMBI, em: 9.4 }).regime).toBe('BEAR');
+    expect(classifyRegimeFull({ ...baseMBI, em: 9.5 }).regime).toBe('CHOPPY');
+  });
+
+  it('EM boundary: 12 -> CAUTIOUS, 15 -> BULL, 25 -> STRONG_BULL', () => {
+    expect(classifyRegimeFull({ ...baseMBI, em: 12 }).regime).toBe('CAUTIOUS');
+    expect(classifyRegimeFull({ ...baseMBI, em: 15 }).regime).toBe('BULL');
+    expect(classifyRegimeFull({ ...baseMBI, em: 25 }).regime).toBe('STRONG_BULL');
+  });
+
+  it('delegates to breadth classifier when EM is null', () => {
+    const result = classifyRegimeFull({
+      ...baseMBI,
+      em: null,
+      source: 'breadth_only',
+      pct52WH: 25,
+      pct52WL: 5,
+      pctAbove200SMA: 65,
+      pctAbove50SMA: 60,
+    });
+    expect(result.regime).toBe('BULL');
+    expect(result.em).toBeNull();
+    expect(result.confidence).toBe('breadth_only');
+    expect(result.source).toBe('breadth_only');
+  });
+
+  it('breadth-only never returns STRONG_BULL', () => {
+    const result = classifyRegimeFull({
+      ...baseMBI,
+      em: null,
+      source: 'breadth_only',
+      pct52WH: 60,
+      pct52WL: 0,
+      pctAbove200SMA: 95,
+      pctAbove50SMA: 95,
+    });
+    expect(result.regime).not.toBe('STRONG_BULL');
+  });
+
+  it('returns stale confidence when data freshness is stale', () => {
+    const result = classifyRegimeFull({
+      ...baseMBI,
+      em: 18,
+      dataFreshness: 'stale',
+      source: 'stale_cache',
+    });
+    expect(result.regime).toBe('BULL');
+    expect(result.confidence).toBe('stale');
+  });
+
+  it('respects custom thresholds', () => {
+    const custom: EMThresholds = {
+      strongBull: 30,
+      bull: 20,
+      cautious: 15,
+      choppy: 10,
+    };
+    // EM=18 would be BULL with defaults, but CAUTIOUS with custom
+    const result = classifyRegimeFull({ ...baseMBI, em: 18 }, custom);
+    expect(result.regime).toBe('CAUTIOUS');
+  });
+
+  it('breadth-only BEAR with weak breadth', () => {
+    const result = classifyRegimeFull({
+      ...baseMBI,
+      em: null,
+      source: 'breadth_only',
+      pct52WH: 3,
+      pct52WL: 25,
+      pctAbove200SMA: 30,
+      pctAbove50SMA: 25,
+    });
+    expect(result.regime).toBe('BEAR');
+    expect(result.confidence).toBe('breadth_only');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getFocusParams
+// ---------------------------------------------------------------------------
+
+describe('getFocusParams', () => {
+  it('returns correct params for STRONG_BULL', () => {
+    const params = getFocusParams('STRONG_BULL');
+    expect(params.threshold).toBe(7.5);
+    expect(params.maxStocks).toBe(12);
+  });
+
+  it('returns correct params for BULL', () => {
+    const params = getFocusParams('BULL');
+    expect(params.threshold).toBe(8.0);
+    expect(params.maxStocks).toBe(10);
+  });
+
+  it('returns correct params for CAUTIOUS', () => {
+    const params = getFocusParams('CAUTIOUS');
+    expect(params.threshold).toBe(8.5);
+    expect(params.maxStocks).toBe(8);
+  });
+
+  it('returns correct params for CHOPPY', () => {
+    const params = getFocusParams('CHOPPY');
+    expect(params.threshold).toBe(9.0);
+    expect(params.maxStocks).toBe(5);
+  });
+
+  it('returns correct params for BEAR', () => {
+    const params = getFocusParams('BEAR');
+    expect(params.threshold).toBe(10.0);
+    expect(params.maxStocks).toBe(3);
+  });
+
+  it('returns a copy (not a reference)', () => {
+    const a = getFocusParams('BULL');
+    const b = getFocusParams('BULL');
+    a.threshold = 99;
+    expect(b.threshold).toBe(8.0);
   });
 });

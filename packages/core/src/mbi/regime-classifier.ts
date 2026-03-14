@@ -1,10 +1,34 @@
-import type { MBIRegime, MBIData, EMThresholds } from '../models/market.js';
+import type { MBIRegime, MBIData, MBISource, EMThresholds } from '../models/market.js';
+import { classifyFromBreadthDetailed } from '../market/fallback-classifier.js';
 
 const DEFAULT_THRESHOLDS: EMThresholds = {
   strongBull: 25,
   bull: 15,
   cautious: 12,
   choppy: 9.5,
+};
+
+// ---------------------------------------------------------------------------
+// Full regime classification result
+// ---------------------------------------------------------------------------
+
+export interface RegimeResult {
+  regime: MBIRegime;
+  em: number | null;
+  confidence: 'full' | 'breadth_only' | 'stale';
+  source: MBISource;
+}
+
+// ---------------------------------------------------------------------------
+// Focus params per regime
+// ---------------------------------------------------------------------------
+
+const FOCUS_PARAMS: Record<MBIRegime, { threshold: number; maxStocks: number }> = {
+  STRONG_BULL: { threshold: 7.5, maxStocks: 12 },
+  BULL: { threshold: 8.0, maxStocks: 10 },
+  CAUTIOUS: { threshold: 8.5, maxStocks: 8 },
+  CHOPPY: { threshold: 9.0, maxStocks: 5 },
+  BEAR: { threshold: 10.0, maxStocks: 3 },
 };
 
 /**
@@ -49,4 +73,49 @@ export function classifyFromBreadth(mbi: MBIData): MBIRegime {
   if (pctAbove200SMA > 50 && pct52WH > 10) return 'CAUTIOUS';
 
   return 'CHOPPY';
+}
+
+// ---------------------------------------------------------------------------
+// Full regime classification (EM-based or breadth fallback)
+// ---------------------------------------------------------------------------
+
+/**
+ * Unified regime classification.
+ * If EM is available, uses EM thresholds (can produce STRONG_BULL).
+ * If EM is null, delegates to classifyFromBreadthDetailed (never STRONG_BULL).
+ */
+export function classifyRegimeFull(
+  data: MBIData,
+  thresholds: EMThresholds = DEFAULT_THRESHOLDS,
+): RegimeResult {
+  if (data.em != null) {
+    return {
+      regime: classifyRegime(data.em, thresholds),
+      em: data.em,
+      confidence: data.dataFreshness === 'stale' ? 'stale' : 'full',
+      source: data.source,
+    };
+  }
+
+  // No EM — use breadth-only classification
+  const breadthResult = classifyFromBreadthDetailed({
+    pct52WH: data.pct52WH,
+    pct52WL: data.pct52WL,
+    pctAbove50SMA: data.pctAbove50SMA ?? 50,
+    pctAbove200SMA: data.pctAbove200SMA ?? 50,
+  });
+
+  return {
+    regime: breadthResult.regime,
+    em: null,
+    confidence: data.dataFreshness === 'stale' ? 'stale' : 'breadth_only',
+    source: data.source,
+  };
+}
+
+/**
+ * Map regime to focus list parameters (score threshold + max stocks).
+ */
+export function getFocusParams(regime: MBIRegime): { threshold: number; maxStocks: number } {
+  return { ...FOCUS_PARAMS[regime] };
 }
