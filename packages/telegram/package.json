@@ -1,0 +1,11 @@
+{
+  "name": "@stark/telegram",
+  "version": "0.1.0",
+  "private": true,
+  "bin": { "stark-telegram": "./bin/stark-telegram.ts" },
+  "dependencies": {
+    "@stark/core": "workspace:*",
+    "@stark/cli": "workspace:*"
+  },
+  "devDependencies": { "typescript": "^5.6.0" }
+}

@@ -18,7 +18,9 @@
       "@stark/core": ["./packages/core/src"],
       "@stark/core/*": ["./packages/core/src/*"],
       "@stark/cli": ["./packages/cli/src"],
-      "@stark/cli/*": ["./packages/cli/src/*"]
+      "@stark/cli/*": ["./packages/cli/src/*"],
+      "@stark/telegram": ["./packages/telegram/src"],
+      "@stark/telegram/*": ["./packages/telegram/src/*"]
     }
   },
   "exclude": ["node_modules", "dist"]
