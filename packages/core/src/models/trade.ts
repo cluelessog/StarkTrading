@@ -1,6 +1,8 @@
 import type { MBIRegime } from './market.js';
 
 export type TradeType = 'swing' | 'intraday';
+// TODO(intraday-seam-6): When building Phase 3 performance analytics,
+// all queries should accept optional trade_type filter to separate swing vs intraday metrics.
 
 export type Conviction = 'HIGH' | 'MEDIUM' | 'LOW';
 

@@ -56,6 +56,8 @@ export interface LLMConfig {
   cacheTtlHours: number;
 }
 
+// TODO(intraday-seam-3): StarkModelConfig in models/config.ts has mbi.refreshInterval.
+// When migrating to StarkModelConfig as the runtime type, ensure refreshInterval is preserved.
 export interface StarkConfig {
   angelOne?: AngelOneConfig;
   llm?: LLMConfig;
