@@ -4,6 +4,9 @@
 .omc/project-memory.json
 .omc/logs/
 
+# Claude Code worktrees
+.claude/
+
 # Node
 node_modules/
 dist/

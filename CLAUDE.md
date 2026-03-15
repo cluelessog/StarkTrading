@@ -1,3 +1,59 @@
+<!-- CC-PROJECT-FRAMEWORK-INTEGRATED -->
+
+## 🔴 MANDATORY: Read Before Any Work
+
+Before starting ANY task, you MUST:
+
+1. Read `docs/PLAN.md` — the current strategic plan and scope
+2. Read `docs/STATUS.md` — what's done, in progress, and blocked
+3. Read `docs/DECISIONS.md` — why things changed (if it exists)
+4. Read any spec files in `docs/specs/` — SDD artifacts live here
+
+If any of these files don't exist, create them.
+
+## 🔵 Status Reporting (AUTOMATIC — DO THIS ALWAYS)
+
+After completing any meaningful unit of work (feature, fix, task, subtask), you MUST
+update `docs/STATUS.md` by appending an entry in this format:
+
+```
+### [YYYY-MM-DD HH:MM] — {{summary}}
+- **Type**: feature | fix | refactor | research | planning
+- **Status**: completed | in-progress | blocked
+- **Files changed**: list of key files
+- **What was done**: 1-2 sentence description
+- **What's next**: 1-2 sentence description of immediate next step
+- **Blockers**: none | description of what's blocking
+```
+
+This is NON-NEGOTIABLE. The project dashboard depends on this file being current.
+
+## 🟡 Plan Hierarchy (IMPORTANT)
+
+```
+docs/PLAN.md              ← STRATEGIC (master, human-updated)
+  │                          Project direction, scope, phases, milestones.
+  │
+  └── .omc/plans/*        ← TACTICAL (per-feature, OMC-created)
+                             Implementation plans for specific features/tasks.
+```
+
+Rules:
+- ALWAYS read `docs/PLAN.md` first to understand project direction
+- NEVER contradict `docs/PLAN.md` in an OMC tactical plan — if conflict, PLAN.md wins
+- If the user gives a strategic change (scope, pivot, dropped feature), update `docs/PLAN.md`
+- `docs/PLAN.md` feeds the cross-project dashboard. `.omc/plans/` do not.
+
+## 🟠 Plan Change Protocol
+
+When new information arrives that changes the plan:
+
+1. Update `docs/PLAN.md` with the new plan
+2. Add an entry to `docs/DECISIONS.md` explaining what/why/impact
+3. Update `docs/STATUS.md` to reflect any tasks now invalid/blocked
+4. If tasks are in progress that conflict with the new plan, STOP and flag in STATUS.md
+
+<!-- END CC-PROJECT-FRAMEWORK -->
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -25,16 +81,17 @@ bun run packages/cli/bin/stark.ts --help
 
 ## Architecture
 
-Bun + TypeScript monorepo with two packages:
+Bun + TypeScript monorepo with three packages:
 
 - **`@stark/core`** (`packages/core/`) — Pure TypeScript library. Zero runtime dependencies beyond Bun built-ins (`bun:sqlite`, `fetch`).
 - **`@stark/cli`** (`packages/cli/`) — CLI application. Depends on `@stark/core`.
+- **`@stark/telegram`** (`packages/telegram/`) — Telegram bot interface. Depends on `@stark/core` and `@stark/cli`.
 
 Cross-package imports use path aliases: `@stark/core/scoring/engine.js`, `@stark/cli/commands/score.js`. All imports use `.js` extensions (ESM).
 
 ### Scoring Engine
 
-13-factor scoring system: 8 algorithmic + 5 semi-discretionary (LLM-enhanced).
+13-factor scoring system: 7 algorithmic + 6 semi-discretionary (LLM-enhanced). Batch scoring always produces `PARTIAL` status; `COMPLETE` only after human review of all semi-discretionary factors.
 
 - **Registry** (`scoring/registry.ts`): Defines factors with `FactorFunction` signature, each returning `FactorOutput` (score 0/0.5/1, reasoning, dataSource).
 - **Engine** (`scoring/engine.ts`): Orchestrates scoring. Takes `DataProvider`, `DatabaseAdapter`, optional `LLMService`. Produces `ScoreResult` with per-factor breakdown.
@@ -71,7 +128,7 @@ export async function fooCommand(args: string[]): Promise<void> { ... }
 
 Angel One broker API -> `DataProvider` interface -> OHLCV cache (SQLite) -> Scoring factors -> Score results (SQLite + CLI output).
 
-`MockProvider` is used as fallback when broker auth fails, providing synthetic data for development.
+Auth fails closed — broker auth failure throws, never silently degrades. `MockProvider` is only available when `STARK_MOCK=1` is explicitly set (with loud console warnings). Do NOT use mock data for live trading decisions.
 
 ## Workflow Rules
 
@@ -84,4 +141,3 @@ Angel One broker API -> `DataProvider` interface -> OHLCV cache (SQLite) -> Scor
 - **Auth**: `SessionManager` handles Angel One TOTP login. Session cached in `~/.stark/session.json` (valid for 1 day).
 - **Tests**: Use `bun:test` (`describe`/`it`/`expect`/`mock`). In-memory SQLite for DB tests. Mock `globalThis.fetch` for API tests.
 - **No npm API SDKs**: All external APIs (Anthropic, Gemini, Perplexity, Angel One) use direct HTTP fetch.
-- 3 pre-existing test failures with `vi.setSystemTime` are resolved — use `bun:test`'s `setSystemTime` instead of vitest's.
