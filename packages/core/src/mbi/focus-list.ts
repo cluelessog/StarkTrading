@@ -51,6 +51,7 @@ export function generateFocusList(
   db: DatabaseAdapter,
   regime: MBIRegime,
   registry: FactorRegistry,
+  options?: { includePartial?: boolean },
 ): FocusListResult {
   const baseThreshold = BASE_THRESHOLDS[regime];
   const threshold = registry.adjustedThreshold(baseThreshold);
@@ -60,7 +61,10 @@ export function generateFocusList(
     return { regime, threshold, maxStocks, stocks: [] };
   }
 
-  // Get COMPLETE scores above threshold, ordered by score descending
+  // Get scores above threshold, ordered by score descending
+  const statusFilter = options?.includePartial
+    ? `status IN ('COMPLETE', 'PARTIAL')`
+    : `status = 'COMPLETE'`;
   const rows = db.query<{
     symbol: string;
     token: string;
@@ -73,7 +77,7 @@ export function generateFocusList(
     `SELECT symbol, token, name, total_score, max_possible_score,
             algorithmic_score, discretionary_score
      FROM stock_scores
-     WHERE status = 'COMPLETE' AND total_score >= ?
+     WHERE ${statusFilter} AND total_score >= ?
      ORDER BY total_score DESC
      LIMIT ?`,
     [threshold, maxStocks],

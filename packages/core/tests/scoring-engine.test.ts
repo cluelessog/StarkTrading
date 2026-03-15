@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { MIGRATIONS } from '../src/db/schema.js';
 import { MockProvider } from '../src/api/mock-provider.js';
@@ -34,7 +34,7 @@ function createTestAdapter() {
 }
 
 describe('ScoringEngine', () => {
-  it('scores a symbol and returns COMPLETE result', async () => {
+  it('scores a symbol and returns PARTIAL result (no review)', async () => {
     const provider = new MockProvider();
     const db = createTestAdapter();
     const engine = new ScoringEngine(provider, db);
@@ -43,8 +43,8 @@ describe('ScoringEngine', () => {
     const result = await engine.scoreSymbol('RELIANCE', '2885', ctx);
 
     expect(result.symbol).toBe('RELIANCE');
-    expect(result.status).toBe('COMPLETE');
-    expect(result.factors.length).toBe(13); // 8 algorithmic + 5 semi-discretionary factors
+    expect(result.status).toBe('PARTIAL');
+    expect(result.factors.length).toBe(13); // 7 algorithmic + 6 semi-discretionary factors
     expect(result.algorithmicScore).toBeGreaterThanOrEqual(0);
     expect(result.discretionaryScore).toBeGreaterThanOrEqual(0);
     expect(result.totalScore).toBe(result.algorithmicScore + result.discretionaryScore);
@@ -84,7 +84,39 @@ describe('ScoringEngine', () => {
     );
     expect(rows).toHaveLength(2);
     expect(rows[0].symbol).toBe('RELIANCE');
-    expect(rows[0].status).toBe('COMPLETE');
+    expect(rows[0].status).toBe('PARTIAL');
+
+    db.close();
+  });
+
+  it('returns COMPLETE when all semi-discretionary factors reviewed', async () => {
+    const provider = new MockProvider();
+    const db = createTestAdapter();
+    const engine = new ScoringEngine(provider, db);
+
+    const ctx = createScoringContext(['RELIANCE']);
+    const allSemiDisc = engine.getSemiDiscretionaryIds();
+    const result = await engine.scoreSymbol('RELIANCE', '2885', ctx, allSemiDisc);
+
+    expect(result.status).toBe('COMPLETE');
+    expect(result.factors).toHaveLength(13);
+
+    db.close();
+  });
+
+  it('includes pattern_quality in semi-discretionary IDs', () => {
+    const provider = new MockProvider();
+    const db = createTestAdapter();
+    const engine = new ScoringEngine(provider, db);
+
+    const semiDiscIds = engine.getSemiDiscretionaryIds();
+    expect(semiDiscIds.has('pattern_quality')).toBe(true);
+    expect(semiDiscIds.has('linearity')).toBe(true);
+    expect(semiDiscIds.has('not_pivot_cutter')).toBe(true);
+    expect(semiDiscIds.has('aoi')).toBe(true);
+    expect(semiDiscIds.has('hve_hvy')).toBe(true);
+    expect(semiDiscIds.has('hvq_2_5')).toBe(true);
+    expect(semiDiscIds.size).toBe(6);
 
     db.close();
   });
@@ -104,7 +136,7 @@ describe('FactorRegistry', () => {
 
   it('calculates max score from enabled factors', () => {
     const registry = createDefaultRegistry();
-    // 8 algorithmic (8 × 1) + 5 discretionary (5 × 1) = 13
+    // 7 algorithmic (7 × 1) + 6 semi-discretionary (6 × 1) = 13
     expect(registry.maxScore()).toBe(13);
   });
 
