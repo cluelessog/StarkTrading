@@ -42,6 +42,7 @@ export class PortfolioSync {
           stopPrice: undefined,
           conviction: 'MEDIUM',
           tradeType: 'swing',
+          force: true,
         });
         result.newEntries.push({ symbol: pos.symbol, shares: pos.quantity, entryPrice: pos.averagePrice });
         this.queries.insertAutomationLog('sync_entry', 'success', `Auto-logged ${pos.symbol}: ${pos.quantity} @ ${pos.averagePrice}`, 'sync');
@@ -55,23 +56,12 @@ export class PortfolioSync {
       }
     }
 
-    // Open trades in Stark but not in broker (exited)
+    // Open trades in Stark but not in broker — leave OPEN with warning
     const brokerSymbols = new Set(positions.map(p => p.symbol));
     for (const trade of openTrades) {
       if (!brokerSymbols.has(trade.symbol)) {
-        const lastPos = positions.find(p => p.symbol === trade.symbol);
-        const exitPrice = lastPos?.lastPrice ?? trade.entryPrice;
-        try {
-          const exitResult = this.tradeManager.exit({
-            symbol: trade.symbol,
-            exitPrice,
-            exitReason: 'DISCRETION',
-          });
-          result.autoExits.push({ symbol: trade.symbol, exitPrice, pnl: exitResult.pnl });
-          this.queries.insertAutomationLog('sync_exit', 'success', `Auto-closed ${trade.symbol} @ ${exitPrice}, P&L: ${exitResult.pnl}`, 'sync');
-        } catch {
-          // Already closed or other issue
-        }
+        result.warnings.push(`${trade.symbol}: open in Stark but missing from broker — leaving OPEN (verify manually)`);
+        this.queries.insertAutomationLog('sync_unresolved', 'skipped', `${trade.symbol}: missing from broker positions`, 'sync');
       }
     }
 

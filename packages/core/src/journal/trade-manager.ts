@@ -1,5 +1,7 @@
 import type { DatabaseAdapter } from '../db/adapter.js';
 import { Queries, type TradeJournalEntry, type InsertTradeData, type CloseTradeData } from '../db/queries.js';
+import type { RiskProfile } from '../config/index.js';
+import { calculatePortfolioHeat } from './portfolio-heat.js';
 
 export interface EntryInput {
   symbol: string;
@@ -9,6 +11,8 @@ export interface EntryInput {
   conviction: 'HIGH' | 'MEDIUM' | 'LOW';
   tradeType?: 'swing' | 'intraday';
   sectorAtEntry?: string;
+  riskProfile?: RiskProfile;
+  force?: boolean;
 }
 
 export interface EntryResult {
@@ -61,6 +65,32 @@ export class TradeManager {
 
     const riskPerShare = input.stopPrice !== undefined ? input.entryPrice - input.stopPrice : 0;
     const riskAmount = input.stopPrice !== undefined ? riskPerShare * input.shares : undefined;
+
+    // Risk enforcement (before insertion)
+    if (input.riskProfile && riskAmount !== undefined) {
+      if (riskAmount > input.riskProfile.riskPerTrade) {
+        if (input.force) {
+          console.warn(`[FORCE] Risk Rs ${riskAmount} exceeds per-trade limit Rs ${input.riskProfile.riskPerTrade}`);
+        } else {
+          throw new Error(
+            `Risk amount Rs ${riskAmount} exceeds per-trade limit Rs ${input.riskProfile.riskPerTrade}. ` +
+            'Reduce position size or use force:true to override.',
+          );
+        }
+      }
+
+      const heat = calculatePortfolioHeat(this.db, input.riskProfile);
+      if (heat.heatPct / 100 >= input.riskProfile.heatAlert) {
+        if (input.force) {
+          console.warn(`[FORCE] Portfolio heat ${heat.heatPct}% exceeds alert level ${input.riskProfile.heatAlert * 100}%`);
+        } else {
+          throw new Error(
+            `Portfolio heat ${heat.heatPct}% exceeds alert level ${input.riskProfile.heatAlert * 100}%. ` +
+            'Reduce exposure or use force:true to override.',
+          );
+        }
+      }
+    }
 
     const data: InsertTradeData = {
       symbol: input.symbol,

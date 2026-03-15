@@ -81,7 +81,7 @@ describe('PortfolioSync', () => {
     db.close();
   });
 
-  it('detects exited positions and auto-closes trades', async () => {
+  it('warns when trade is open in Stark but missing from broker', async () => {
     const db = createTestDb();
     const queries = new Queries(db);
     const tradeManager = new TradeManager(db);
@@ -89,18 +89,22 @@ describe('PortfolioSync', () => {
     // Pre-seed an open trade
     tradeManager.entry({ symbol: 'TCS', entryPrice: 3800, shares: 50, conviction: 'MEDIUM' });
 
-    // Broker shows no positions (trade was exited externally)
+    // Broker shows no positions (trade missing)
     const sync = new PortfolioSync(tradeManager, makeMockProvider([]), queries);
     const result = await sync.sync();
 
-    expect(result.autoExits).toHaveLength(1);
-    expect(result.autoExits[0].symbol).toBe('TCS');
-    expect(result.autoExits[0].exitPrice).toBe(3800); // falls back to entryPrice
-    expect(result.newEntries).toHaveLength(0);
+    // Should NOT auto-exit — should warn
+    expect(result.autoExits).toHaveLength(0);
+    expect(result.warnings.length).toBeGreaterThanOrEqual(1);
+    expect(result.warnings.some(w => w.includes('TCS') && w.includes('missing from broker'))).toBe(true);
 
-    // Verify trade is now closed
-    expect(tradeManager.getOpenTrades()).toHaveLength(0);
-    expect(tradeManager.getClosedTrades()).toHaveLength(1);
+    // Trade should still be OPEN
+    expect(tradeManager.getOpenTrades()).toHaveLength(1);
+    expect(tradeManager.getClosedTrades()).toHaveLength(0);
+
+    // Check automation log
+    const logs = queries.getAutomationLogs(10);
+    expect(logs.some(l => l.action === 'sync_unresolved')).toBe(true);
 
     db.close();
   });
