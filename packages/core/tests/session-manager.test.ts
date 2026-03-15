@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { generateTOTP } from '../src/auth/session-manager.js';
 import { SessionManager } from '../src/auth/session-manager.js';
 import type { StarkConfig } from '../src/config/index.js';
@@ -41,14 +41,27 @@ describe('generateTOTP', () => {
 // ---------------------------------------------------------------------------
 
 describe('SessionManager', () => {
-  it('falls back to MockProvider when no angelOne config', async () => {
-    const config = getDefaultConfig();
-    const manager = new SessionManager();
-    const provider = await manager.ensureAuthenticated(config);
-    expect(provider.name).toBe('mock');
+  const originalEnv = process.env.STARK_MOCK;
+
+  beforeEach(() => {
+    delete process.env.STARK_MOCK;
   });
 
-  it('falls back to MockProvider when no TOTP secret', async () => {
+  afterEach(() => {
+    if (originalEnv !== undefined) {
+      process.env.STARK_MOCK = originalEnv;
+    } else {
+      delete process.env.STARK_MOCK;
+    }
+  });
+
+  it('throws when no angelOne config (fail closed)', async () => {
+    const config = getDefaultConfig();
+    const manager = new SessionManager();
+    await expect(manager.ensureAuthenticated(config)).rejects.toThrow('Broker not configured');
+  });
+
+  it('throws when no TOTP secret (fail closed)', async () => {
     const config: StarkConfig = {
       ...getDefaultConfig(),
       angelOne: {
@@ -58,13 +71,24 @@ describe('SessionManager', () => {
       },
     };
     const manager = new SessionManager();
-    // This will fail to import AngelOneProvider in test env or fail auth,
-    // either way it should fall back to MockProvider
-    const provider = await manager.ensureAuthenticated(config);
-    expect(provider.name).toBe('mock');
+    await expect(manager.ensureAuthenticated(config)).rejects.toThrow('No TOTP secret configured');
   });
 
-  it('falls back to MockProvider when no apiKey', async () => {
+  it('throws when no password (fail closed)', async () => {
+    const config: StarkConfig = {
+      ...getDefaultConfig(),
+      angelOne: {
+        apiKey: 'test-key',
+        clientId: 'test-client',
+        totpSecret: 'GEZDGNBVGY3TQOJQ',
+        // no password
+      },
+    };
+    const manager = new SessionManager();
+    await expect(manager.ensureAuthenticated(config)).rejects.toThrow('No password configured');
+  });
+
+  it('throws when no apiKey (fail closed)', async () => {
     const config: StarkConfig = {
       ...getDefaultConfig(),
       angelOne: {
@@ -74,7 +98,40 @@ describe('SessionManager', () => {
       },
     };
     const manager = new SessionManager();
+    await expect(manager.ensureAuthenticated(config)).rejects.toThrow('Broker not configured');
+  });
+
+  it('returns MockProvider when STARK_MOCK=1', async () => {
+    process.env.STARK_MOCK = '1';
+    const config = getDefaultConfig();
+    const manager = new SessionManager();
     const provider = await manager.ensureAuthenticated(config);
     expect(provider.name).toBe('mock');
+  });
+
+  it('passes clientcode, password, and totp to authenticate()', async () => {
+    const config: StarkConfig = {
+      ...getDefaultConfig(),
+      angelOne: {
+        apiKey: 'test-key',
+        clientId: 'TEST123',
+        password: 'test-password',
+        totpSecret: 'GEZDGNBVGY3TQOJQ',
+      },
+    };
+    const manager = new SessionManager();
+    // This will fail because AngelOneProvider tries to make a real HTTP call,
+    // but we can verify the error is from the API call, not from missing credentials
+    try {
+      await manager.ensureAuthenticated(config);
+    } catch (err) {
+      const message = (err as Error).message;
+      // Should NOT be a "Missing credentials" error — credentials are correctly plumbed
+      expect(message).not.toContain('Missing credentials');
+      // Should NOT be "Broker not configured" or "No password" — those are our guards
+      expect(message).not.toContain('Broker not configured');
+      expect(message).not.toContain('No password configured');
+      expect(message).not.toContain('No TOTP secret configured');
+    }
   });
 });
