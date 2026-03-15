@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { existsSync, renameSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { generateTOTP } from '../src/auth/session-manager.js';
 import { SessionManager } from '../src/auth/session-manager.js';
 import type { StarkConfig } from '../src/config/index.js';
 import { getDefaultConfig } from '../src/config/index.js';
+
+const SESSION_PATH = join(homedir(), '.stark', 'session.json');
+const SESSION_BACKUP = SESSION_PATH + '.test-backup';
 
 // ---------------------------------------------------------------------------
 // TOTP Generation tests
@@ -43,11 +49,23 @@ describe('generateTOTP', () => {
 describe('SessionManager', () => {
   const originalEnv = process.env.STARK_MOCK;
 
+  let sessionMoved = false;
+
   beforeEach(() => {
     delete process.env.STARK_MOCK;
+    // Move session file aside so isAuthenticated() returns false during tests
+    if (existsSync(SESSION_PATH)) {
+      renameSync(SESSION_PATH, SESSION_BACKUP);
+      sessionMoved = true;
+    }
   });
 
   afterEach(() => {
+    // Restore session file
+    if (sessionMoved && existsSync(SESSION_BACKUP)) {
+      renameSync(SESSION_BACKUP, SESSION_PATH);
+      sessionMoved = false;
+    }
     if (originalEnv !== undefined) {
       process.env.STARK_MOCK = originalEnv;
     } else {
@@ -119,19 +137,33 @@ describe('SessionManager', () => {
         totpSecret: 'GEZDGNBVGY3TQOJQ',
       },
     };
-    const manager = new SessionManager();
-    // This will fail because AngelOneProvider tries to make a real HTTP call,
-    // but we can verify the error is from the API call, not from missing credentials
+
+    // Mock fetch to capture the authenticate() payload
+    let capturedBody: Record<string, string> | null = null;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('loginByPassword') && init?.body) {
+        capturedBody = JSON.parse(init.body as string);
+      }
+      return new Response(JSON.stringify({ status: true, data: {
+        jwtToken: 'fake-jwt', refreshToken: 'fake-refresh', feedToken: 'fake-feed',
+      }}), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    };
+
     try {
+      const manager = new SessionManager();
       await manager.ensureAuthenticated(config);
-    } catch (err) {
-      const message = (err as Error).message;
-      // Should NOT be a "Missing credentials" error — credentials are correctly plumbed
-      expect(message).not.toContain('Missing credentials');
-      // Should NOT be "Broker not configured" or "No password" — those are our guards
-      expect(message).not.toContain('Broker not configured');
-      expect(message).not.toContain('No password configured');
-      expect(message).not.toContain('No TOTP secret configured');
+
+      // Verify the exact credential fields sent to AngelOne API
+      expect(capturedBody).not.toBeNull();
+      expect(capturedBody!.clientcode).toBe('TEST123');
+      expect(capturedBody!.password).toBe('test-password');
+      expect(capturedBody!.totp).toMatch(/^\d{6}$/);
+      // Must NOT contain the wrong field name
+      expect(capturedBody!).not.toHaveProperty('clientId');
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 });
