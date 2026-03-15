@@ -46,7 +46,12 @@ export class PortfolioSync {
         result.newEntries.push({ symbol: pos.symbol, shares: pos.quantity, entryPrice: pos.averagePrice });
         this.queries.insertAutomationLog('sync_entry', 'success', `Auto-logged ${pos.symbol}: ${pos.quantity} @ ${pos.averagePrice}`, 'sync');
       } catch (err) {
-        result.alreadySynced++;
+        const msg = (err as Error).message ?? '';
+        if (msg.includes('Already have open trade')) {
+          result.alreadySynced++;
+        } else {
+          result.warnings.push(`${pos.symbol}: unexpected error during sync — ${msg}`);
+        }
       }
     }
 

@@ -196,4 +196,67 @@ describe('PortfolioSync', () => {
 
     db.close();
   });
+
+  it('counts "Already have open trade" as alreadySynced', async () => {
+    const db = createTestDb();
+    const queries = new Queries(db);
+
+    // Pre-seed an open trade directly so TradeManager.entry will throw "Already have open trade"
+    tradeManager_seed: {
+      const tm = new TradeManager(db);
+      tm.entry({ symbol: 'RELIANCE', entryPrice: 2450, shares: 100, conviction: 'MEDIUM' });
+    }
+
+    // Mock TradeManager whose entry() always throws "Already have open trade"
+    const fakeTm = {
+      entry() { throw new Error('Already have open trade for RELIANCE (id=1)'); },
+      exit: new TradeManager(db).exit.bind(new TradeManager(db)),
+      getOpenTrades: () => queries.getOpenTrades(),
+      getClosedTrades: () => queries.getClosedTrades(),
+      getAllTrades: () => queries.getAllTrades(),
+    } as unknown as TradeManager;
+
+    const positions: BrokerPosition[] = [
+      { symbol: 'RELIANCE', token: '2885', exchange: 'NSE', quantity: 100, averagePrice: 2450, lastPrice: 2500, pnl: 5000, productType: 'CNC' },
+    ];
+    // Use a provider that returns a position not already matched (so it hits the try/catch path)
+    // We need a symbol not in openTrades to trigger the try block — use a fresh db for the sync check
+    const db2 = createTestDb();
+    const queries2 = new Queries(db2);
+    const sync = new PortfolioSync(fakeTm, makeMockProvider(positions), queries2);
+
+    const result = await sync.sync();
+    expect(result.alreadySynced).toBe(1);
+    expect(result.warnings).toHaveLength(0);
+
+    db.close();
+    db2.close();
+  });
+
+  it('pushes unexpected errors to warnings', async () => {
+    const db = createTestDb();
+    const queries = new Queries(db);
+
+    // Mock TradeManager whose entry() throws an unexpected error
+    const fakeTm = {
+      entry() { throw new Error('Database connection lost'); },
+      exit: new TradeManager(db).exit.bind(new TradeManager(db)),
+      getOpenTrades: () => queries.getOpenTrades(),
+      getClosedTrades: () => queries.getClosedTrades(),
+      getAllTrades: () => queries.getAllTrades(),
+    } as unknown as TradeManager;
+
+    const positions: BrokerPosition[] = [
+      { symbol: 'WIPRO', token: '3787', exchange: 'NSE', quantity: 50, averagePrice: 500, lastPrice: 510, pnl: 500, productType: 'CNC' },
+    ];
+    const sync = new PortfolioSync(fakeTm, makeMockProvider(positions), queries);
+
+    const result = await sync.sync();
+    expect(result.alreadySynced).toBe(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain('WIPRO');
+    expect(result.warnings[0]).toContain('Database connection lost');
+
+    db.close();
+  });
 });

@@ -88,6 +88,39 @@ export class NLU {
     // help
     if (/^(help|commands|\?)$/i.test(lower)) return { command: 'help', args: {}, confidence: 1 };
 
+    // entry SYMBOL PRICE SHARES [STOP]
+    const entryMatch = t.match(/^entry\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s+(\d+)(?:\s+(\d+(?:\.\d+)?))?$/i);
+    if (entryMatch) {
+      const symbol = entryMatch[1].toUpperCase();
+      this.lastSymbolByChat.set(chatId, symbol);
+      return {
+        command: 'entry',
+        args: {
+          symbol,
+          price: entryMatch[2],
+          shares: entryMatch[3],
+          ...(entryMatch[4] ? { stop: entryMatch[4] } : {}),
+        },
+        confidence: 1,
+      };
+    }
+
+    // exit SYMBOL PRICE [REASON]
+    const exitMatch = t.match(/^exit\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)(?:\s+(stopped|target|discretion|invalidated))?$/i);
+    if (exitMatch) {
+      const symbol = exitMatch[1].toUpperCase();
+      this.lastSymbolByChat.set(chatId, symbol);
+      return {
+        command: 'exit',
+        args: {
+          symbol,
+          price: exitMatch[2],
+          ...(exitMatch[3] ? { reason: exitMatch[3].toUpperCase() } : {}),
+        },
+        confidence: 1,
+      };
+    }
+
     // override with pronoun resolution: "override its linearity to 1"
     const overrideMatch = t.match(/^override\s+(its|that|this)\s+(\w+)\s+(?:to\s+)?(\d+(?:\.\d+)?)$/i);
     if (overrideMatch) {
