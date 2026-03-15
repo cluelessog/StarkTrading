@@ -1,15 +1,17 @@
 import { logger } from '@stark/core/log/index.js';
 import { classifyRegimeFull } from '@stark/core/mbi/regime-classifier.js';
+import { generateFocusList } from '@stark/core/mbi/focus-list.js';
+import type { MBIRegime } from '@stark/core/models/market.js';
 import { createCommandContext } from '../utils/command-context.js';
 
 export async function morningCommand(_args: string[]): Promise<void> {
   const startTime = Date.now();
-  const { db, queries, provider, llmService, mbiManager } = await createCommandContext();
+  const { db, queries, provider, llmService, mbiManager, engine } = await createCommandContext();
 
   console.log('=== Morning Workflow ===\n');
 
   // 1. Check current MBI regime
-  let currentRegime: string | null = null;
+  let currentRegime: MBIRegime | null = null;
   try {
     const mbiResult = await mbiManager.getLatestRegime();
     const regimeResult = classifyRegimeFull(mbiResult.mbi);
@@ -41,15 +43,9 @@ export async function morningCommand(_args: string[]): Promise<void> {
   }
 
   // 2. Get focus list stocks
-  const focusStocks = db.query<{
-    symbol: string;
-    token: string;
-    total_score: number;
-  }>(
-    `SELECT symbol, token, total_score FROM stock_scores
-     WHERE status = 'COMPLETE'
-     ORDER BY total_score DESC LIMIT 5`,
-  );
+  const registry = engine.getRegistry();
+  const focusList = generateFocusList(db, currentRegime ?? 'CAUTIOUS', registry, { includePartial: true });
+  const focusStocks = focusList.stocks;
 
   if (focusStocks.length === 0) {
     console.log('No focus stocks. Run `stark evening` first.');
@@ -95,7 +91,7 @@ export async function morningCommand(_args: string[]): Promise<void> {
 
       const gapFlag = Math.abs(gapPct) > 3 ? ' !! GAP' : '';
       console.log(
-        `  ${stock.symbol.padEnd(15)} Score: ${stock.total_score}  LTP: ${quote.ltp}  Gap: ${gapPct >= 0 ? '+' : ''}${gapPct.toFixed(1)}%${gapFlag}`,
+        `  ${stock.symbol.padEnd(15)} Score: ${stock.totalScore}  LTP: ${quote.ltp}  Gap: ${gapPct >= 0 ? '+' : ''}${gapPct.toFixed(1)}%${gapFlag}`,
       );
 
       if (Math.abs(gapPct) > 3) {

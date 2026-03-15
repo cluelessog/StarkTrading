@@ -2,6 +2,8 @@ import type { PersistentCommandContext } from '@stark/cli/utils/command-context.
 import { calculatePortfolioHeat } from '@stark/core/journal/portfolio-heat.js';
 import { TradeManager } from '@stark/core/journal/trade-manager.js';
 import { generateAdvancedStats } from '@stark/core/journal/performance.js';
+import { generateFocusList } from '@stark/core/mbi/focus-list.js';
+import type { MBIRegime } from '@stark/core/models/market.js';
 import { ToolRegistry, type ToolResult } from './tool-registry.js';
 
 export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry {
@@ -52,11 +54,13 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
     description: 'Show the current focus list (top-scored stocks)',
     examples: ['focus', 'focus list'],
     async execute(_args) {
-      const rows = ctx.db.query<{ symbol: string; total_score: number; max_possible_score: number; status: string }>(
-        `SELECT symbol, total_score, max_possible_score, status FROM stock_scores
-         WHERE status = 'COMPLETE' ORDER BY total_score DESC LIMIT 10`,
-      );
-      return { data: rows, summary: `Focus list: ${rows.length} stocks` };
+      const regime = (ctx.queries.getLatestMarketContext()?.mbiRegime as MBIRegime) ?? 'CAUTIOUS';
+      const registry = ctx.engine.getRegistry();
+      const focusList = generateFocusList(ctx.db, regime, registry, { includePartial: true });
+      const rows = focusList.stocks.map((s) => ({
+        symbol: s.symbol, total_score: s.totalScore, max_possible_score: s.maxScore, status: 'COMPLETE',
+      }));
+      return { data: rows, summary: `Focus list: ${rows.length} stocks (regime: ${regime})` };
     },
   });
 
@@ -121,9 +125,10 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
     examples: ['morning'],
     async execute(_args) {
       await ctx.refreshAuth();
-      const focusStocks = ctx.db.query<{ symbol: string; total_score: number }>(
-        `SELECT symbol, total_score FROM stock_scores WHERE status = 'COMPLETE' ORDER BY total_score DESC LIMIT 5`,
-      );
+      const regime = (ctx.queries.getLatestMarketContext()?.mbiRegime as MBIRegime) ?? 'CAUTIOUS';
+      const registry = ctx.engine.getRegistry();
+      const focusList = generateFocusList(ctx.db, regime, registry, { includePartial: true });
+      const focusStocks = focusList.stocks.map((s) => ({ symbol: s.symbol, total_score: s.totalScore }));
       const marketCtx = ctx.queries.getLatestMarketContext();
       return {
         data: { focusStocks, regime: marketCtx?.mbiRegime },
@@ -172,7 +177,7 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
       const factor = args.factor ?? '';
       const value = parseFloat(args.value ?? '0');
       if (!symbol || !factor) return { data: null, summary: 'Usage: review SYMBOL FACTOR VALUE' };
-      return { data: { symbol, factor, value }, summary: `Override queued: ${symbol}.${factor} = ${value}` };
+      return { data: { symbol, factor, value }, summary: `[NOT PERSISTED] Override queued: ${symbol}.${factor} = ${value}. Use CLI \`stark review\` for persistent overrides.` };
     },
   });
 

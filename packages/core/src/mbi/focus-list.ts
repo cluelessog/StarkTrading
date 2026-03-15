@@ -51,9 +51,9 @@ export function generateFocusList(
   db: DatabaseAdapter,
   regime: MBIRegime,
   registry: FactorRegistry,
-  options?: { includePartial?: boolean },
+  options?: { includePartial?: boolean; scoreThresholds?: Partial<Record<MBIRegime, number>> },
 ): FocusListResult {
-  const baseThreshold = BASE_THRESHOLDS[regime];
+  const baseThreshold = options?.scoreThresholds?.[regime] ?? BASE_THRESHOLDS[regime];
   const threshold = registry.adjustedThreshold(baseThreshold);
   const maxStocks = MAX_FOCUS[regime];
 

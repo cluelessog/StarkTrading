@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { classifyRegime, classifyFromBreadth, classifyRegimeFull, getFocusParams } from '../src/mbi/regime-classifier.js';
+import { describe, it, expect } from 'bun:test';
+import { classifyRegime, classifyFromBreadth, classifyRegimeFull } from '../src/mbi/regime-classifier.js';
 import type { MBIData, EMThresholds } from '../src/models/market.js';
 
 describe('classifyRegime', () => {
@@ -190,45 +190,3 @@ describe('classifyRegimeFull', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// getFocusParams
-// ---------------------------------------------------------------------------
-
-describe('getFocusParams', () => {
-  it('returns correct params for STRONG_BULL', () => {
-    const params = getFocusParams('STRONG_BULL');
-    expect(params.threshold).toBe(7.5);
-    expect(params.maxStocks).toBe(12);
-  });
-
-  it('returns correct params for BULL', () => {
-    const params = getFocusParams('BULL');
-    expect(params.threshold).toBe(8.0);
-    expect(params.maxStocks).toBe(10);
-  });
-
-  it('returns correct params for CAUTIOUS', () => {
-    const params = getFocusParams('CAUTIOUS');
-    expect(params.threshold).toBe(8.5);
-    expect(params.maxStocks).toBe(8);
-  });
-
-  it('returns correct params for CHOPPY', () => {
-    const params = getFocusParams('CHOPPY');
-    expect(params.threshold).toBe(9.0);
-    expect(params.maxStocks).toBe(5);
-  });
-
-  it('returns correct params for BEAR', () => {
-    const params = getFocusParams('BEAR');
-    expect(params.threshold).toBe(10.0);
-    expect(params.maxStocks).toBe(3);
-  });
-
-  it('returns a copy (not a reference)', () => {
-    const a = getFocusParams('BULL');
-    const b = getFocusParams('BULL');
-    a.threshold = 99;
-    expect(b.threshold).toBe(8.0);
-  });
-});

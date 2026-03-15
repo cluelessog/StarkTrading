@@ -3,6 +3,7 @@ import { TradingScheduler } from '@stark/core/scheduler/index.js';
 import { TelegramNotifier } from '@stark/core/notifications/index.js';
 import { logger } from '@stark/core/log/index.js';
 import { classifyRegimeFull } from '@stark/core/mbi/regime-classifier.js';
+import { generateFocusList } from '@stark/core/mbi/focus-list.js';
 
 export async function cronStartCommand(_args: string[]): Promise<void> {
   const ctx = await createPersistentCommandContext();
@@ -76,15 +77,15 @@ export async function cronStartCommand(_args: string[]): Promise<void> {
       await ctx.refreshAuth();
 
       try {
-        const focusStocks = ctx.db.query<{ symbol: string; total_score: number }>(
-          `SELECT symbol, total_score FROM stock_scores WHERE status = 'COMPLETE' ORDER BY total_score DESC LIMIT 5`,
-        );
-
         const prevCtx = ctx.queries.getLatestMarketContext();
         const mbiResult = await ctx.mbiManager.getLatestRegime().catch(() => null);
         const currentRegime = mbiResult
           ? classifyRegimeFull(mbiResult.mbi).regime
           : null;
+
+        const registry = ctx.engine.getRegistry();
+        const focusList = generateFocusList(ctx.db, currentRegime ?? 'CAUTIOUS', registry, { includePartial: true });
+        const focusStocks = focusList.stocks;
 
         const regimeChanged =
           prevCtx?.mbiRegime && currentRegime && prevCtx.mbiRegime !== currentRegime;

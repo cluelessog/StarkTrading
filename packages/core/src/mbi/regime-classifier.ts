@@ -19,18 +19,6 @@ export interface RegimeResult {
   source: MBISource;
 }
 
-// ---------------------------------------------------------------------------
-// Focus params per regime
-// ---------------------------------------------------------------------------
-
-const FOCUS_PARAMS: Record<MBIRegime, { threshold: number; maxStocks: number }> = {
-  STRONG_BULL: { threshold: 7.5, maxStocks: 12 },
-  BULL: { threshold: 8.0, maxStocks: 10 },
-  CAUTIOUS: { threshold: 8.5, maxStocks: 8 },
-  CHOPPY: { threshold: 9.0, maxStocks: 5 },
-  BEAR: { threshold: 10.0, maxStocks: 3 },
-};
-
 /**
  * 5-tier regime classification based on EM (Effective Measure).
  * STRONG_BULL: EM > 25
@@ -113,9 +101,3 @@ export function classifyRegimeFull(
   };
 }
 
-/**
- * Map regime to focus list parameters (score threshold + max stocks).
- */
-export function getFocusParams(regime: MBIRegime): { threshold: number; maxStocks: number } {
-  return { ...FOCUS_PARAMS[regime] };
-}

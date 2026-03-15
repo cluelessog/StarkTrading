@@ -1,4 +1,4 @@
-export { classifyRegime, classifyFromBreadth, classifyRegimeFull, getFocusParams } from './regime-classifier.js';
+export { classifyRegime, classifyFromBreadth, classifyRegimeFull } from './regime-classifier.js';
 export type { RegimeResult } from './regime-classifier.js';
 export { MBIDataManager, fetchMBIFromSheet } from './data-manager.js';
 export type { MBISheetConfig } from './data-manager.js';

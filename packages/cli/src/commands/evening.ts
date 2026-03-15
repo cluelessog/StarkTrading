@@ -1,4 +1,4 @@
-import { classifyRegimeFull, getFocusParams } from '@stark/core/mbi/regime-classifier.js';
+import { classifyRegimeFull } from '@stark/core/mbi/regime-classifier.js';
 import { generateFocusList } from '@stark/core/mbi/focus-list.js';
 import { logger } from '@stark/core/log/index.js';
 import { formatBreadthSummary } from '@stark/core/mbi/format.js';
@@ -83,18 +83,17 @@ export async function eveningCommand(_args: string[]): Promise<void> {
   });
 
   // 4. Focus list (regime-aware thresholds)
-  const focusParams = getFocusParams(regime);
   const focusList = generateFocusList(db, regime, registry);
 
   logger.info('mbi', 'focus_generated', `Focus list: ${focusList.stocks.length} stocks`, {
-    regime, threshold: focusParams.threshold, maxStocks: focusParams.maxStocks,
+    regime, threshold: focusList.threshold, maxStocks: focusList.maxStocks,
     focusCount: focusList.stocks.length,
   });
 
   // 5. Summary
   console.log('\n--- Summary ---');
   console.log(`Scored: ${results.length} stocks (${results[0]?.status ?? 'N/A'})`);
-  console.log(`Regime: ${regime} (threshold: ${focusParams.threshold}, max: ${focusParams.maxStocks})`);
+  console.log(`Regime: ${regime} (threshold: ${focusList.threshold}, max: ${focusList.maxStocks})`);
 
   const highScores = results.filter((r) => r.totalScore >= 5);
   console.log(`High potential (total >= 5): ${highScores.length}`);

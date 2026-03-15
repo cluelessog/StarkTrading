@@ -115,4 +115,25 @@ describe('generateFocusList', () => {
 
     db.close();
   });
+
+  it('uses custom scoreThresholds when provided', () => {
+    const db = createTestDb();
+    const registry = createDefaultRegistry();
+
+    insertScore(db, 'STOCK_A', 7, 'COMPLETE');
+    insertScore(db, 'STOCK_B', 5, 'COMPLETE');
+
+    // Default BULL threshold is 8.0 — neither stock qualifies
+    const defaultResult = generateFocusList(db, 'BULL', registry);
+    expect(defaultResult.stocks.length).toBe(0);
+
+    // Custom threshold lowers BULL to 6.0 — STOCK_A qualifies
+    const customResult = generateFocusList(db, 'BULL', registry, {
+      scoreThresholds: { BULL: 6.0 },
+    });
+    expect(customResult.stocks.length).toBe(1);
+    expect(customResult.stocks[0].symbol).toBe('STOCK_A');
+
+    db.close();
+  });
 });
