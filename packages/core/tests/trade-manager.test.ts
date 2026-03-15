@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { MIGRATIONS } from '../src/db/schema.js';
 import { TradeManager } from '../src/journal/trade-manager.js';
@@ -103,6 +103,69 @@ describe('TradeManager', () => {
 
     expect(result.pnl).toBe(-5000); // (1650-1700)*100
     expect(result.rMultiple).toBe(-1); // -50/50
+    db.close();
+  });
+
+  it('throws when risk exceeds per-trade limit', () => {
+    const db = createTestDb();
+    const mgr = new TradeManager(db);
+
+    expect(() =>
+      mgr.entry({
+        symbol: 'RELIANCE',
+        entryPrice: 2850,
+        shares: 200,
+        stopPrice: 2750,
+        conviction: 'HIGH',
+        riskProfile: { riskPerTrade: 10000, totalCapital: 500000, heatWarning: 0.06, heatAlert: 0.08 },
+      })
+    ).toThrow('exceeds per-trade limit');
+    // riskAmount = (2850-2750)*200 = 20000 > 10000
+
+    db.close();
+  });
+
+  it('allows force override when risk exceeds limit', () => {
+    const db = createTestDb();
+    const mgr = new TradeManager(db);
+
+    const result = mgr.entry({
+      symbol: 'RELIANCE',
+      entryPrice: 2850,
+      shares: 200,
+      stopPrice: 2750,
+      conviction: 'HIGH',
+      riskProfile: { riskPerTrade: 10000, totalCapital: 500000, heatWarning: 0.06, heatAlert: 0.08 },
+      force: true,
+    });
+
+    expect(result.tradeId).toBe(1);
+    expect(result.riskAmount).toBe(20000);
+
+    db.close();
+  });
+
+  it('throws when portfolio heat exceeds alert level', () => {
+    const db = createTestDb();
+    const mgr = new TradeManager(db);
+
+    const riskProfile = { riskPerTrade: 50000, totalCapital: 100000, heatWarning: 0.06, heatAlert: 0.08 };
+
+    // First trade: risk = (1000-900)*100 = 10000, heat = 10%
+    mgr.entry({ symbol: 'AAA', entryPrice: 1000, shares: 100, stopPrice: 900, conviction: 'HIGH', riskProfile, force: true });
+
+    // Second trade would push heat over alert (10000 existing + new risk)
+    expect(() =>
+      mgr.entry({
+        symbol: 'BBB',
+        entryPrice: 500,
+        shares: 100,
+        stopPrice: 400,
+        conviction: 'MEDIUM',
+        riskProfile,
+      })
+    ).toThrow('heat');
+
     db.close();
   });
 });

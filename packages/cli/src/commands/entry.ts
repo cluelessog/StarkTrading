@@ -68,6 +68,7 @@ export async function entryCommand(args: string[]): Promise<void> {
       shares,
       stopPrice,
       conviction,
+      riskProfile: config.risk.swing,
     });
 
     // Check heat

@@ -267,7 +267,7 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
       }
 
       try {
-        const result = tradeManager.entry({ symbol, entryPrice, shares, stopPrice, conviction });
+        const result = tradeManager.entry({ symbol, entryPrice, shares, stopPrice, conviction, riskProfile: ctx.config.risk.swing });
         const lines = [
           `Trade entered: ${result.symbol}`,
           `  Entry: Rs ${result.entryPrice}`,
