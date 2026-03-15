@@ -2,6 +2,7 @@ import { createPersistentCommandContext } from '../utils/command-context.js';
 import { TradingScheduler } from '@stark/core/scheduler/index.js';
 import { TelegramNotifier } from '@stark/core/notifications/index.js';
 import { logger } from '@stark/core/log/index.js';
+import { classifyRegimeFull } from '@stark/core/mbi/regime-classifier.js';
 
 export async function cronStartCommand(_args: string[]): Promise<void> {
   const ctx = await createPersistentCommandContext();
@@ -82,7 +83,7 @@ export async function cronStartCommand(_args: string[]): Promise<void> {
         const prevCtx = ctx.queries.getLatestMarketContext();
         const mbiResult = await ctx.mbiManager.getLatestRegime().catch(() => null);
         const currentRegime = mbiResult
-          ? (await import('@stark/core/mbi/regime-classifier.js')).classifyRegimeFull(mbiResult.mbi).regime
+          ? classifyRegimeFull(mbiResult.mbi).regime
           : null;
 
         const regimeChanged =

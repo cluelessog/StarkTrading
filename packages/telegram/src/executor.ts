@@ -1,9 +1,12 @@
 import type { PersistentCommandContext } from '@stark/cli/utils/command-context.js';
 import { calculatePortfolioHeat } from '@stark/core/journal/portfolio-heat.js';
+import { TradeManager } from '@stark/core/journal/trade-manager.js';
+import { generateAdvancedStats } from '@stark/core/journal/performance.js';
 import { ToolRegistry, type ToolResult } from './tool-registry.js';
 
 export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry {
   const registry = new ToolRegistry();
+  const tradeManager = new TradeManager(ctx.db);
 
   registry.register({
     name: 'score',
@@ -161,16 +164,36 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
   registry.register({
     name: 'performance',
     description: 'Show trading performance metrics',
-    examples: ['performance'],
+    examples: ['performance', 'stats', 'my performance'],
     async execute(_args) {
       const closed = ctx.queries.getClosedTrades();
-      const wins = closed.filter((t) => (t.rMultiple ?? 0) > 0).length;
-      const totalR = closed.reduce((sum, t) => sum + (t.rMultiple ?? 0), 0);
-      const winRate = closed.length > 0 ? (wins / closed.length * 100).toFixed(1) : '0';
-      return {
-        data: { total: closed.length, wins, winRate, totalR: totalR.toFixed(2) },
-        summary: `${closed.length} trades | Win rate: ${winRate}% | Total R: ${totalR.toFixed(2)}R`,
-      };
+
+      if (closed.length === 0) {
+        return { data: null, summary: 'No closed trades yet. Log entries and exits to see performance.' };
+      }
+
+      const wins = closed.filter((t) => (t.pnl ?? 0) > 0);
+      const totalPnl = closed.reduce((s, t) => s + (t.pnl ?? 0), 0);
+      const totalR = closed.reduce((s, t) => s + (t.rMultiple ?? 0), 0);
+      const winRate = (wins.length / closed.length * 100).toFixed(1);
+      const avgHoldDays = (closed.reduce((s, t) => s + (t.holdDays ?? 0), 0) / closed.length).toFixed(1);
+
+      const advanced = generateAdvancedStats(closed);
+
+      const lines = [
+        `Performance (${closed.length} closed trades):`,
+        `  Win rate: ${winRate}%`,
+        `  Avg R: ${(totalR / closed.length).toFixed(2)}R`,
+        `  Total PnL: Rs ${totalPnl.toLocaleString('en-IN')}`,
+        `  Profit factor: ${advanced.profitFactor === null ? 'Perfect (no losses)' : advanced.profitFactor.toFixed(2)}`,
+        `  Max drawdown: ${advanced.maxDrawdown.maxDrawdownAbs > 0 ? `Rs ${advanced.maxDrawdown.maxDrawdownAbs.toLocaleString('en-IN')} (${advanced.maxDrawdown.maxDrawdownPct.toFixed(1)}%)` : 'None'}`,
+        `  Current streak: ${advanced.currentStreak.type ? `${advanced.currentStreak.length}${advanced.currentStreak.type}` : 'N/A'}`,
+        `  Best streak: ${advanced.longestWinStreak}W / Worst: ${advanced.longestLoseStreak}L`,
+        `  Kelly: ${advanced.kellyPct.toFixed(1)}%`,
+        `  Avg hold: ${avgHoldDays} days`,
+      ];
+
+      return { data: { closedTrades: closed.length, wins: wins.length, winRate, totalR: totalR.toFixed(2), advanced }, summary: lines.join('\n') };
     },
   });
 
@@ -202,25 +225,90 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
     description: 'Log a trade entry',
     examples: ['entry RELIANCE 2500 100 2450'],
     async execute(args) {
-      const { symbol, price, shares, stop } = args;
-      if (!symbol || !price || !shares) {
-        return { data: null, summary: 'Usage: entry SYMBOL PRICE SHARES [STOP]' };
+      const symbol = (args.symbol ?? '').toUpperCase();
+      if (!symbol) return { data: null, summary: 'Usage: entry SYMBOL PRICE SHARES [STOP]' };
+
+      const entryPrice = parseFloat(args.price ?? '');
+      const shares = parseInt(args.shares ?? '', 10);
+
+      if (isNaN(entryPrice) || isNaN(shares)) {
+        return { data: null, summary: 'Error: price and shares must be valid numbers' };
       }
-      return {
-        data: { symbol, price, shares, stop },
-        summary: `Entry logged: ${symbol} @ ${price} x ${shares}${stop ? ` stop ${stop}` : ''}`,
-      };
+
+      let stopPrice: number | undefined;
+      if (args.stop) {
+        stopPrice = parseFloat(args.stop);
+        if (isNaN(stopPrice)) {
+          return { data: null, summary: 'Error: stop price must be a valid number' };
+        }
+        if (stopPrice >= entryPrice) {
+          return { data: null, summary: 'Error: stop price must be below entry price' };
+        }
+      }
+
+      const conviction = (args.conviction ?? 'MEDIUM').toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW';
+      if (!['HIGH', 'MEDIUM', 'LOW'].includes(conviction)) {
+        return { data: null, summary: 'Error: conviction must be HIGH, MEDIUM, or LOW' };
+      }
+
+      try {
+        const result = tradeManager.entry({ symbol, entryPrice, shares, stopPrice, conviction });
+        const lines = [
+          `Trade entered: ${result.symbol}`,
+          `  Entry: Rs ${result.entryPrice}`,
+          `  Shares: ${result.shares}`,
+          result.stopPrice != null ? `  Stop: Rs ${result.stopPrice}` : '  Stop: not set',
+          result.riskAmount != null ? `  Risk: Rs ${result.riskAmount}` : null,
+          `  Conviction: ${result.conviction}`,
+          `  Trade ID: ${result.tradeId}`,
+        ].filter(Boolean);
+        return { data: result, summary: lines.join('\n') };
+      } catch (err) {
+        return { data: null, summary: `Error: ${(err as Error).message}` };
+      }
     },
   });
 
   registry.register({
     name: 'exit',
     description: 'Log a trade exit',
-    examples: ['exit RELIANCE 2600'],
+    examples: ['exit RELIANCE 2600', 'exit RELIANCE 2600 target'],
     async execute(args) {
-      const { symbol, price, reason } = args;
-      if (!symbol || !price) return { data: null, summary: 'Usage: exit SYMBOL PRICE [REASON]' };
-      return { data: { symbol, price, reason }, summary: `Exit logged: ${symbol} @ ${price}` };
+      const symbol = (args.symbol ?? '').toUpperCase();
+      const exitPrice = parseFloat(args.price ?? '');
+      if (!symbol || isNaN(exitPrice)) {
+        return { data: null, summary: 'Usage: exit SYMBOL PRICE [REASON]' };
+      }
+
+      const reasonStr = (args.reason ?? 'DISCRETION').toUpperCase();
+      const validReasons = ['STOPPED', 'TARGET', 'DISCRETION', 'INVALIDATED'];
+      if (!validReasons.includes(reasonStr)) {
+        return { data: null, summary: `Error: reason must be one of: ${validReasons.join(', ')}` };
+      }
+
+      try {
+        const result = tradeManager.exit({
+          symbol,
+          exitPrice,
+          exitReason: reasonStr as 'STOPPED' | 'TARGET' | 'DISCRETION' | 'INVALIDATED',
+        });
+        const pnlSign = result.pnl >= 0 ? '+' : '';
+        const rSign = result.rMultiple >= 0 ? '+' : '';
+        return {
+          data: result,
+          summary: [
+            `Trade closed: ${result.symbol}`,
+            `  Entry: Rs ${result.entryPrice}`,
+            `  Exit: Rs ${result.exitPrice}`,
+            `  P&L: ${pnlSign}Rs ${result.pnl}`,
+            `  R: ${rSign}${result.rMultiple}R`,
+            `  Hold: ${result.holdDays} days`,
+            `  Reason: ${result.exitReason}`,
+          ].join('\n'),
+        };
+      } catch (err) {
+        return { data: null, summary: `Error: ${(err as Error).message}` };
+      }
     },
   });
 

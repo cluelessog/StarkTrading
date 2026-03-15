@@ -9,8 +9,8 @@ function makeMockCtx(): PersistentCommandContext {
       { id: 1, symbol: 'RELIANCE', entryPrice: 2500, shares: 100, stopPrice: 2450, status: 'open', rMultiple: null },
     ],
     getClosedTrades: () => [
-      { id: 2, symbol: 'INFY', entryPrice: 1500, shares: 50, stopPrice: 1450, status: 'closed', rMultiple: 1.5 },
-      { id: 3, symbol: 'TCS', entryPrice: 3500, shares: 20, stopPrice: 3400, status: 'closed', rMultiple: -0.5 },
+      { id: 2, symbol: 'INFY', entryPrice: 1500, shares: 50, stopPrice: 1450, status: 'CLOSED', rMultiple: 1.5, pnl: 2500, exitDate: '2026-01-15', exitPrice: 1550, holdDays: 10, exitReason: 'TARGET', entryDate: '2026-01-05', conviction: 'MEDIUM', tradeType: 'swing', riskAmount: 2500, scoreAtEntry: null, scoreBreakdownJson: null, marketRegimeAtEntry: null, sectorAtEntry: null, overrideCount: 0, createdAt: '2026-01-05' },
+      { id: 3, symbol: 'TCS', entryPrice: 3500, shares: 20, stopPrice: 3400, status: 'CLOSED', rMultiple: -0.5, pnl: -2000, exitDate: '2026-01-20', exitPrice: 3400, holdDays: 5, exitReason: 'STOPPED', entryDate: '2026-01-15', conviction: 'MEDIUM', tradeType: 'swing', riskAmount: 2000, scoreAtEntry: null, scoreBreakdownJson: null, marketRegimeAtEntry: null, sectorAtEntry: null, overrideCount: 0, createdAt: '2026-01-15' },
     ],
     getAllTrades: () => [
       { id: 1, symbol: 'RELIANCE', status: 'open' },
@@ -167,14 +167,17 @@ describe('Executor (createToolRegistry)', () => {
     expect(result.summary).toContain('breadth');
   });
 
-  it('performance tool calculates win rate and total R', async () => {
+  it('performance tool shows enhanced stats with advanced metrics', async () => {
     const ctx = makeMockCtx();
     const registry = createToolRegistry(ctx);
     const perf = registry.get('performance')!;
     const result = await perf.execute({});
-    expect(result.summary).toContain('2 trades');
-    expect(result.summary).toContain('50.0%');
-    expect(result.summary).toContain('1.00R');
+    expect(result.summary).toContain('2 closed trades');
+    expect(result.summary).toContain('Win rate: 50.0%');
+    expect(result.summary).toContain('Profit factor');
+    expect(result.summary).toContain('Max drawdown');
+    expect(result.summary).toContain('Current streak');
+    expect(result.summary).toContain('Kelly');
   });
 
   it('entry tool requires symbol, price, and shares', async () => {
