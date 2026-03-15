@@ -88,8 +88,8 @@ export class NLU {
     // help
     if (/^(help|commands|\?)$/i.test(lower)) return { command: 'help', args: {}, confidence: 1 };
 
-    // entry SYMBOL PRICE SHARES [STOP]
-    const entryMatch = t.match(/^entry\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s+(\d+)(?:\s+(\d+(?:\.\d+)?))?$/i);
+    // entry SYMBOL PRICE SHARES [STOP] [CONVICTION]
+    const entryMatch = t.match(/^entry\s+([A-Za-z0-9_-]+)\s+(\d+(?:\.\d+)?)\s+(\d+)(?:\s+(\d+(?:\.\d+)?))?(?:\s+(high|medium|low))?$/i);
     if (entryMatch) {
       const symbol = entryMatch[1].toUpperCase();
       this.lastSymbolByChat.set(chatId, symbol);
@@ -100,6 +100,7 @@ export class NLU {
           price: entryMatch[2],
           shares: entryMatch[3],
           ...(entryMatch[4] ? { stop: entryMatch[4] } : {}),
+          ...(entryMatch[5] ? { conviction: entryMatch[5].toUpperCase() } : {}),
         },
         confidence: 1,
       };

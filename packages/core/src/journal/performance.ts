@@ -148,3 +148,178 @@ export function generatePerformanceReport(db: DatabaseAdapter): PerformanceRepor
     overrideAccuracy,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Advanced Performance Analytics
+// ---------------------------------------------------------------------------
+
+export interface DrawdownResult {
+  /** Peak-to-trough percentage on cumulative PnL */
+  maxDrawdownPct: number;
+  /** Absolute max drawdown in Rs */
+  maxDrawdownAbs: number;
+  /** Trade index where peak occurred */
+  peakTradeIndex: number;
+  /** Trade index where trough occurred */
+  troughTradeIndex: number;
+}
+
+export interface StreakResult {
+  /** 'W' for winning streak, 'L' for losing streak, null if no closed trades */
+  type: 'W' | 'L' | null;
+  /** Length of current streak */
+  length: number;
+}
+
+export interface AdvancedPerformanceStats {
+  maxDrawdown: DrawdownResult;
+  currentStreak: StreakResult;
+  longestWinStreak: number;
+  longestLoseStreak: number;
+  profitFactor: number;
+  avgWinToAvgLoss: number;
+  calmarRatio: number | null;
+  kellyPct: number;
+}
+
+const DEFAULT_ADVANCED_STATS: AdvancedPerformanceStats = {
+  maxDrawdown: { maxDrawdownPct: 0, maxDrawdownAbs: 0, peakTradeIndex: 0, troughTradeIndex: 0 },
+  currentStreak: { type: null, length: 0 },
+  longestWinStreak: 0,
+  longestLoseStreak: 0,
+  profitFactor: 0,
+  avgWinToAvgLoss: 0,
+  calmarRatio: null,
+  kellyPct: 0,
+};
+
+export function generateAdvancedStats(closedTrades: TradeJournalEntry[]): AdvancedPerformanceStats {
+  // Filter defensively for trades with exitDate and sort by exitDate ASC
+  const trades = closedTrades
+    .filter(t => t.exitDate != null)
+    .sort((a, b) => a.exitDate!.localeCompare(b.exitDate!));
+
+  if (trades.length < 2) {
+    return { ...DEFAULT_ADVANCED_STATS };
+  }
+
+  const n = trades.length;
+
+  // --- Max Drawdown ---
+  let cumPnl = 0;
+  let peak = 0;
+  let peakIdx = 0;
+  let maxDrawdownAbs = 0;
+  let maxDrawdownPct = 0;
+  let peakTradeIndex = 0;
+  let troughTradeIndex = 0;
+
+  for (let i = 0; i < n; i++) {
+    cumPnl += trades[i].pnl ?? 0;
+    if (cumPnl > peak) {
+      peak = cumPnl;
+      peakIdx = i;
+    }
+    const drawdownAbs = peak - cumPnl;
+    if (drawdownAbs > maxDrawdownAbs) {
+      maxDrawdownAbs = drawdownAbs;
+      troughTradeIndex = i;
+      peakTradeIndex = peakIdx;
+      if (peak > 0) {
+        maxDrawdownPct = (drawdownAbs / peak) * 100;
+      }
+    }
+  }
+
+  // --- Current Streak ---
+  let currentStreakType: 'W' | 'L' | null = null;
+  let currentStreakLength = 0;
+  if (n > 0) {
+    const lastPnl = trades[n - 1].pnl ?? 0;
+    currentStreakType = lastPnl > 0 ? 'W' : 'L';
+    currentStreakLength = 1;
+    for (let i = n - 2; i >= 0; i--) {
+      const pnl = trades[i].pnl ?? 0;
+      const isWin = pnl > 0;
+      if ((currentStreakType === 'W') === isWin) {
+        currentStreakLength++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  // --- Longest Win/Lose Streaks ---
+  let longestWinStreak = 0;
+  let longestLoseStreak = 0;
+  let curStreakType: 'W' | 'L' | null = null;
+  let curStreakLen = 0;
+
+  for (let i = 0; i < n; i++) {
+    const pnl = trades[i].pnl ?? 0;
+    const isWin = pnl > 0;
+    const type: 'W' | 'L' = isWin ? 'W' : 'L';
+    if (type === curStreakType) {
+      curStreakLen++;
+    } else {
+      curStreakType = type;
+      curStreakLen = 1;
+    }
+    if (type === 'W' && curStreakLen > longestWinStreak) longestWinStreak = curStreakLen;
+    if (type === 'L' && curStreakLen > longestLoseStreak) longestLoseStreak = curStreakLen;
+  }
+
+  // --- Profit Factor ---
+  const grossWins = trades.filter(t => (t.pnl ?? 0) > 0).reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const grossLossAbs = Math.abs(trades.filter(t => (t.pnl ?? 0) <= 0).reduce((s, t) => s + (t.pnl ?? 0), 0));
+  let profitFactor: number;
+  if (grossLossAbs === 0) {
+    profitFactor = grossWins > 0 ? Infinity : 0;
+  } else {
+    profitFactor = grossWins / grossLossAbs;
+  }
+
+  // --- Avg Win / Avg Loss ---
+  const winTrades = trades.filter(t => (t.pnl ?? 0) > 0);
+  const lossTrades = trades.filter(t => (t.pnl ?? 0) <= 0);
+  const avgWin = winTrades.length > 0 ? winTrades.reduce((s, t) => s + (t.pnl ?? 0), 0) / winTrades.length : 0;
+  const avgLossAbs = lossTrades.length > 0
+    ? Math.abs(lossTrades.reduce((s, t) => s + (t.pnl ?? 0), 0) / lossTrades.length)
+    : 0;
+  const avgWinToAvgLoss = avgLossAbs === 0 ? 0 : avgWin / avgLossAbs;
+
+  // --- Calmar Ratio ---
+  const totalPnl = trades.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const calmarRatio = maxDrawdownAbs === 0 ? null : totalPnl / maxDrawdownAbs;
+
+  // --- Kelly Percentage ---
+  const winRate = winTrades.length / n;
+  let kellyPct = 0;
+  if (avgLossAbs > 0 && avgWin > 0) {
+    const ratio = avgWin / avgLossAbs;
+    kellyPct = (winRate - ((1 - winRate) / ratio)) * 100;
+    kellyPct = Math.max(0, Math.min(100, kellyPct));
+  }
+
+  return {
+    maxDrawdown: {
+      maxDrawdownPct: Math.round(maxDrawdownPct * 100) / 100,
+      maxDrawdownAbs: Math.round(maxDrawdownAbs * 100) / 100,
+      peakTradeIndex,
+      troughTradeIndex,
+    },
+    currentStreak: { type: currentStreakType, length: currentStreakLength },
+    longestWinStreak,
+    longestLoseStreak,
+    profitFactor,
+    avgWinToAvgLoss: Math.round(avgWinToAvgLoss * 100) / 100,
+    calmarRatio: calmarRatio !== null ? Math.round(calmarRatio * 100) / 100 : null,
+    kellyPct: Math.round(kellyPct * 100) / 100,
+  };
+}
+
+export function generateAdvancedStatsFromDb(db: DatabaseAdapter): AdvancedPerformanceStats {
+  const queries = new Queries(db);
+  const closed = queries.getClosedTrades();
+  return generateAdvancedStats(closed);
+}

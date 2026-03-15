@@ -1,6 +1,7 @@
 import type { PersistentCommandContext } from '@stark/cli/utils/command-context.js';
 import { calculatePortfolioHeat } from '@stark/core/journal/portfolio-heat.js';
 import { TradeManager } from '@stark/core/journal/trade-manager.js';
+import { generateAdvancedStats } from '@stark/core/journal/performance.js';
 import { ToolRegistry, type ToolResult } from './tool-registry.js';
 
 export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry {
@@ -163,16 +164,36 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
   registry.register({
     name: 'performance',
     description: 'Show trading performance metrics',
-    examples: ['performance'],
+    examples: ['performance', 'stats', 'my performance'],
     async execute(_args) {
       const closed = ctx.queries.getClosedTrades();
-      const wins = closed.filter((t) => (t.rMultiple ?? 0) > 0).length;
-      const totalR = closed.reduce((sum, t) => sum + (t.rMultiple ?? 0), 0);
-      const winRate = closed.length > 0 ? (wins / closed.length * 100).toFixed(1) : '0';
-      return {
-        data: { total: closed.length, wins, winRate, totalR: totalR.toFixed(2) },
-        summary: `${closed.length} trades | Win rate: ${winRate}% | Total R: ${totalR.toFixed(2)}R`,
-      };
+
+      if (closed.length === 0) {
+        return { data: null, summary: 'No closed trades yet. Log entries and exits to see performance.' };
+      }
+
+      const wins = closed.filter((t) => (t.pnl ?? 0) > 0);
+      const totalPnl = closed.reduce((s, t) => s + (t.pnl ?? 0), 0);
+      const totalR = closed.reduce((s, t) => s + (t.rMultiple ?? 0), 0);
+      const winRate = (wins.length / closed.length * 100).toFixed(1);
+      const avgHoldDays = (closed.reduce((s, t) => s + (t.holdDays ?? 0), 0) / closed.length).toFixed(1);
+
+      const advanced = generateAdvancedStats(closed);
+
+      const lines = [
+        `Performance (${closed.length} closed trades):`,
+        `  Win rate: ${winRate}%`,
+        `  Avg R: ${(totalR / closed.length).toFixed(2)}R`,
+        `  Total PnL: Rs ${totalPnl.toLocaleString('en-IN')}`,
+        `  Profit factor: ${advanced.profitFactor === Infinity ? 'Perfect (no losses)' : advanced.profitFactor.toFixed(2)}`,
+        `  Max drawdown: ${advanced.maxDrawdown.maxDrawdownAbs > 0 ? `Rs ${advanced.maxDrawdown.maxDrawdownAbs.toLocaleString('en-IN')} (${advanced.maxDrawdown.maxDrawdownPct.toFixed(1)}%)` : 'None'}`,
+        `  Current streak: ${advanced.currentStreak.type ? `${advanced.currentStreak.length}${advanced.currentStreak.type}` : 'N/A'}`,
+        `  Best streak: ${advanced.longestWinStreak}W / Worst: ${advanced.longestLoseStreak}L`,
+        `  Kelly: ${advanced.kellyPct.toFixed(1)}%`,
+        `  Avg hold: ${avgHoldDays} days`,
+      ];
+
+      return { data: { closedTrades: closed.length, wins: wins.length, winRate, totalR: totalR.toFixed(2), advanced }, summary: lines.join('\n') };
     },
   });
 

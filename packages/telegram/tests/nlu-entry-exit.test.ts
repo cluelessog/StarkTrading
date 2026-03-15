@@ -56,6 +56,24 @@ describe('NLU entry/exit patterns', () => {
     expect(r.args.symbol).toBe('RELIANCE');
   });
 
+  it('parses "entry RELIANCE 2500 100 2450 high" with conviction', async () => {
+    const nlu = new NLU(makeRegistry(), null);
+    const r = await nlu.parse('entry RELIANCE 2500 100 2450 high', 'c1', []);
+    expect(r.command).toBe('entry');
+    expect(r.args.symbol).toBe('RELIANCE');
+    expect(r.args.stop).toBe('2450');
+    expect(r.args.conviction).toBe('HIGH');
+  });
+
+  it('parses "entry INFY 1500 50 low" with conviction but no stop', async () => {
+    const nlu = new NLU(makeRegistry(), null);
+    const r = await nlu.parse('entry INFY 1500 50 low', 'c1', []);
+    expect(r.command).toBe('entry');
+    expect(r.args.symbol).toBe('INFY');
+    expect(r.args.shares).toBe('50');
+    expect(r.args.conviction).toBe('LOW');
+  });
+
   it('entry sets lastSymbolByChat for pronoun resolution', async () => {
     const nlu = new NLU(makeRegistry(), null);
     await nlu.parse('entry RELIANCE 2500 100 2450', 'c1', []);
