@@ -4,7 +4,8 @@ import { generateFocusList } from '@stark/core/mbi/focus-list.js';
 import { createDefaultRegistry } from '@stark/core/scoring/registry.js';
 import { loadConfig } from '@stark/core/config/index.js';
 
-export async function focusCommand(_args: string[]): Promise<void> {
+export async function focusCommand(args: string[]): Promise<void> {
+  const includePartial = args.includes('--include-unreviewed');
   const config = loadConfig();
   const { db } = createDatabase();
   const registry = createDefaultRegistry();
@@ -23,7 +24,7 @@ export async function focusCommand(_args: string[]): Promise<void> {
     console.log('Market regime unavailable, using CAUTIOUS as default\n');
   }
 
-  const focusList = generateFocusList(db, regime, registry);
+  const focusList = generateFocusList(db, regime, registry, { includePartial });
 
   console.log(`Threshold: ${focusList.threshold} (${regime})`);
   console.log(`Max stocks: ${focusList.maxStocks}\n`);

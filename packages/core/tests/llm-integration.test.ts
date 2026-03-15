@@ -36,7 +36,7 @@ function createMockLLMService(): LLMService {
 }
 
 describe('ScoringEngine integration', () => {
-  it('scores all 13 factors with LLM service and returns COMPLETE', async () => {
+  it('scores all 13 factors with LLM service and returns PARTIAL (no review)', async () => {
     const provider = new MockProvider();
     const db = createTestAdapter();
     const llm = createMockLLMService();
@@ -45,7 +45,7 @@ describe('ScoringEngine integration', () => {
     const ctx = createScoringContext(['RELIANCE']);
     const result = await engine.scoreSymbol('RELIANCE', '2885', ctx);
 
-    expect(result.status).toBe('COMPLETE');
+    expect(result.status).toBe('PARTIAL');
     expect(result.factors).toHaveLength(13);
     expect(result.totalScore).toBe(result.algorithmicScore + result.discretionaryScore);
     expect(result.maxPossibleScore).toBe(13);
@@ -62,7 +62,7 @@ describe('ScoringEngine integration', () => {
     db.close();
   });
 
-  it('scores all 13 factors without LLM and returns COMPLETE', async () => {
+  it('scores all 13 factors without LLM and returns PARTIAL (no review)', async () => {
     const provider = new MockProvider();
     const db = createTestAdapter();
     // No LLM service — semi-discretionary factors use algorithmic fallback
@@ -71,7 +71,7 @@ describe('ScoringEngine integration', () => {
     const ctx = createScoringContext(['TCS']);
     const result = await engine.scoreSymbol('TCS', '11536', ctx);
 
-    expect(result.status).toBe('COMPLETE');
+    expect(result.status).toBe('PARTIAL');
     expect(result.factors).toHaveLength(13);
     // Without LLM, borderline/ambiguous cases score 0
     expect(result.algorithmicScore).toBeGreaterThanOrEqual(0);
@@ -85,9 +85,12 @@ describe('ScoringEngine integration', () => {
     const db = createTestAdapter();
     const engine = new ScoringEngine(provider, db);
 
-    await engine.scoreBatch([
+    const { results } = await engine.scoreBatch([
       { symbol: 'RELIANCE', token: '2885', name: 'Reliance Industries' },
     ]);
+
+    // Verify in-memory result status
+    expect(results[0].status).toBe('PARTIAL');
 
     const row = db.queryOne<{
       symbol: string;
@@ -100,12 +103,12 @@ describe('ScoringEngine integration', () => {
       hvq_2_5: number | null;
     }>(
       `SELECT symbol, status, total_score, linearity, not_pivot_cutter, aoi, hve_hvy, hvq_2_5
-       FROM stock_scores WHERE symbol = ?`,
+       FROM stock_scores WHERE symbol = ? ORDER BY id DESC LIMIT 1`,
       ['RELIANCE'],
     );
 
     expect(row).not.toBeNull();
-    expect(row!.status).toBe('COMPLETE');
+    expect(row!.status).toBe('PARTIAL');
     expect(typeof row!.linearity).toBe('number');
     expect(typeof row!.not_pivot_cutter).toBe('number');
     expect(typeof row!.aoi).toBe('number');
@@ -130,8 +133,8 @@ describe('ScoringEngine integration', () => {
     const ctx = createScoringContext(['INFY']);
     const result = await engine.scoreSymbol('INFY', '1594', ctx);
 
-    // Should still complete — factors fall back gracefully
-    expect(result.status).toBe('COMPLETE');
+    // Should still produce PARTIAL — factors fall back gracefully but not reviewed
+    expect(result.status).toBe('PARTIAL');
     expect(result.factors).toHaveLength(13);
 
     db.close();

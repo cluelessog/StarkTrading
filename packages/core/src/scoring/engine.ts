@@ -102,10 +102,20 @@ export class ScoringEngine {
     return this.registry;
   }
 
+  /** IDs of semi-discretionary factors (derived from registry) */
+  getSemiDiscretionaryIds(): Set<string> {
+    return new Set(
+      this.registry.getAll()
+        .filter(f => f.type === 'semi-discretionary')
+        .map(f => f.id),
+    );
+  }
+
   async scoreSymbol(
     symbol: string,
     token: string,
     context: ScoringContext,
+    reviewedFactorIds?: Set<string>,
   ): Promise<ScoreResult> {
     // Fetch OHLCV data (last 120 trading days for all factors)
     const to = new Date().toISOString().slice(0, 10);
@@ -125,7 +135,7 @@ export class ScoringEngine {
     const factors: FactorResult[] = [];
     let algorithmicScore = 0;
     let discretionaryScore = 0;
-    const semiDiscretionaryIds = new Set(['linearity', 'not_pivot_cutter', 'aoi', 'hve_hvy', 'hvq_2_5']);
+    const semiDiscretionaryIds = this.getSemiDiscretionaryIds();
 
     for (const factor of algorithmicFactors) {
       if (!factor.fn) continue;
@@ -174,8 +184,11 @@ export class ScoringEngine {
     }
 
     const totalScore = algorithmicScore + discretionaryScore;
-    const allFactorsScored = factors.length === this.registry.getEnabled().length;
-    const status: 'PARTIAL' | 'COMPLETE' = allFactorsScored ? 'COMPLETE' : 'PARTIAL';
+    // Status is COMPLETE only when all semi-discretionary factors have been reviewed
+    const allReviewed = reviewedFactorIds
+      ? [...semiDiscretionaryIds].every(id => reviewedFactorIds.has(id))
+      : false;
+    const status: 'PARTIAL' | 'COMPLETE' = allReviewed ? 'COMPLETE' : 'PARTIAL';
 
     const degradedFactors = context.degradedFactors
       .filter((d) => d.symbol === symbol)

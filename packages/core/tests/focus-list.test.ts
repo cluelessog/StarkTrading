@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { MIGRATIONS } from '../src/db/schema.js';
 import { generateFocusList } from '../src/mbi/focus-list.js';
@@ -76,6 +76,28 @@ describe('generateFocusList', () => {
     // Adjusted threshold: 8.0 * (11/13) = 6.77 → 7.0
     expect(result.threshold).toBe(7.0);
     expect(result.stocks.length).toBe(1);
+
+    db.close();
+  });
+
+  it('includes PARTIAL stocks when includePartial is true', () => {
+    const db = createTestDb();
+    const registry = createDefaultRegistry();
+
+    insertScore(db, 'COMPLETE_HIGH', 10, 'COMPLETE');
+    insertScore(db, 'PARTIAL_HIGH', 9.5, 'PARTIAL');
+    insertScore(db, 'PARTIAL_LOW', 6, 'PARTIAL');
+
+    // Default: only COMPLETE
+    const result = generateFocusList(db, 'BULL', registry);
+    expect(result.stocks.length).toBe(1);
+    expect(result.stocks[0].symbol).toBe('COMPLETE_HIGH');
+
+    // With includePartial: both COMPLETE and qualifying PARTIAL
+    const resultWithPartial = generateFocusList(db, 'BULL', registry, { includePartial: true });
+    expect(resultWithPartial.stocks.length).toBe(2);
+    expect(resultWithPartial.stocks[0].symbol).toBe('COMPLETE_HIGH');
+    expect(resultWithPartial.stocks[1].symbol).toBe('PARTIAL_HIGH');
 
     db.close();
   });
