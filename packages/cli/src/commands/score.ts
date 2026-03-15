@@ -13,17 +13,35 @@ export async function scoreCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const { queries, engine } = await createCommandContext();
+  const { queries, engine, provider } = await createCommandContext();
 
   if (symbolArg) {
-    // Score single symbol
-    const token = '0'; // Will be resolved from watchlist/instrument master
-    console.log(`Scoring ${symbolArg}...\n`);
+    const symbol = symbolArg.toUpperCase();
 
-    const result = await engine.scoreSymbol(symbolArg, token, {
+    // Resolve token from watchlist first
+    const allStocks = queries.getWatchlistStocks(1);
+    const watchlistMatch = allStocks.find((s) => s.symbol === symbol);
+
+    let token: string;
+    if (watchlistMatch) {
+      token = watchlistMatch.token;
+    } else {
+      // Fall back to instrument master search
+      const results = await provider.searchSymbol(symbol);
+      const exact = results.find((r) => r.symbol === symbol);
+      if (!exact) {
+        console.error(`Symbol '${symbol}' not found in watchlist or instrument master.`);
+        process.exit(1);
+      }
+      token = exact.token;
+    }
+
+    console.log(`Scoring ${symbol} (token: ${token})...\n`);
+
+    const result = await engine.scoreSymbol(symbol, token, {
       sessionId: 'cli-single',
       startedAt: Date.now(),
-      symbols: [symbolArg],
+      symbols: [symbol],
       apiCalls: {},
       cacheHits: 0,
       cacheMisses: 0,

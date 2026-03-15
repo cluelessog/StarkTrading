@@ -16,7 +16,22 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
       const symbol = (args.symbol ?? '').toUpperCase();
       if (!symbol) return { data: null, summary: 'No symbol provided. Usage: score SYMBOL' };
 
-      const result = await ctx.engine.scoreSymbol(symbol, '0', {
+      // Resolve token from watchlist first, then instrument master
+      const allStocks = ctx.queries.getWatchlistStocks(1);
+      const watchlistMatch = allStocks.find((s) => s.symbol === symbol);
+      let token: string;
+      if (watchlistMatch) {
+        token = watchlistMatch.token;
+      } else {
+        const results = await ctx.provider.searchSymbol(symbol);
+        const exact = results.find((r) => r.symbol === symbol);
+        if (!exact) {
+          return { data: null, summary: `Symbol '${symbol}' not found in watchlist or instrument master.` };
+        }
+        token = exact.token;
+      }
+
+      const result = await ctx.engine.scoreSymbol(symbol, token, {
         sessionId: 'bot-single',
         startedAt: Date.now(),
         symbols: [symbol],
