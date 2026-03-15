@@ -73,6 +73,11 @@ Angel One broker API -> `DataProvider` interface -> OHLCV cache (SQLite) -> Scor
 
 `MockProvider` is used as fallback when broker auth fails, providing synthetic data for development.
 
+## Workflow Rules
+
+- **Test-first bug fixes**: When asked to fix an issue, first write tests that reproduce the issue (failing tests), then fix the code until all tests pass.
+- **Always use worktrees**: Start all work in a new git worktree under `.claude/worktrees/` within the project directory. Never create worktrees outside the project root. Commit only to the worktree branch — do not merge to master without explicit user approval.
+
 ## Key Conventions
 
 - **Config**: `~/.stark/config.json` loaded by `loadConfig()`. All fields optional. `StarkConfig.llm?: LLMConfig` controls LLM (opt-in).
