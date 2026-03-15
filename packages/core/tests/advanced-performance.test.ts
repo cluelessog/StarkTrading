@@ -140,14 +140,14 @@ describe('generateAdvancedStats', () => {
     expect(result.profitFactor).toBeCloseTo(2.5, 2);
   });
 
-  it('profit factor with no losses returns Infinity', () => {
+  it('profit factor with no losses returns null (JSON-safe)', () => {
     const trades = [
       makeTrade({ pnl: 100, exitDate: '2026-01-01' }),
       makeTrade({ pnl: 200, exitDate: '2026-01-02' }),
       makeTrade({ pnl: 150, exitDate: '2026-01-03' }),
     ];
     const result = generateAdvancedStats(trades);
-    expect(result.profitFactor).toBe(Infinity);
+    expect(result.profitFactor).toBeNull();
   });
 
   it('kelly percentage: 60% win rate, 2:1 ratio -> 40%', () => {

@@ -185,7 +185,7 @@ export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry 
         `  Win rate: ${winRate}%`,
         `  Avg R: ${(totalR / closed.length).toFixed(2)}R`,
         `  Total PnL: Rs ${totalPnl.toLocaleString('en-IN')}`,
-        `  Profit factor: ${advanced.profitFactor === Infinity ? 'Perfect (no losses)' : advanced.profitFactor.toFixed(2)}`,
+        `  Profit factor: ${advanced.profitFactor === null ? 'Perfect (no losses)' : advanced.profitFactor.toFixed(2)}`,
         `  Max drawdown: ${advanced.maxDrawdown.maxDrawdownAbs > 0 ? `Rs ${advanced.maxDrawdown.maxDrawdownAbs.toLocaleString('en-IN')} (${advanced.maxDrawdown.maxDrawdownPct.toFixed(1)}%)` : 'None'}`,
         `  Current streak: ${advanced.currentStreak.type ? `${advanced.currentStreak.length}${advanced.currentStreak.type}` : 'N/A'}`,
         `  Best streak: ${advanced.longestWinStreak}W / Worst: ${advanced.longestLoseStreak}L`,

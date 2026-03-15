@@ -176,7 +176,7 @@ export interface AdvancedPerformanceStats {
   currentStreak: StreakResult;
   longestWinStreak: number;
   longestLoseStreak: number;
-  profitFactor: number;
+  profitFactor: number | null;
   avgWinToAvgLoss: number;
   calmarRatio: number | null;
   kellyPct: number;
@@ -274,7 +274,7 @@ export function generateAdvancedStats(closedTrades: TradeJournalEntry[]): Advanc
   const grossLossAbs = Math.abs(trades.filter(t => (t.pnl ?? 0) <= 0).reduce((s, t) => s + (t.pnl ?? 0), 0));
   let profitFactor: number;
   if (grossLossAbs === 0) {
-    profitFactor = grossWins > 0 ? Infinity : 0;
+    profitFactor = grossWins > 0 ? null : 0;
   } else {
     profitFactor = grossWins / grossLossAbs;
   }
