@@ -25,6 +25,7 @@ export async function reviewCommand(args: string[]): Promise<void> {
     algorithmic_score: number;
     discretionary_score: number;
     total_score: number;
+    status: string;
     score_breakdown_json: string;
     ep_catalyst: number | null;
     sector_strength: number | null;
@@ -41,18 +42,18 @@ export async function reviewCommand(args: string[]): Promise<void> {
     hvq_2_5: number | null;
   }>(
     `SELECT id, symbol, token, name, algorithmic_score, discretionary_score, total_score,
+            status,
             score_breakdown_json,
             ep_catalyst, sector_strength, high_rs, ipo_recency,
             thrust_power, pivot_location, pattern_quality, pivot_level_proximity,
             linearity, not_pivot_cutter, aoi, hve_hvy, hvq_2_5
      FROM stock_scores
-     WHERE total_score >= 3
+     WHERE status = 'PARTIAL'
      ORDER BY total_score DESC`,
   );
 
   if (candidates.length === 0) {
-    console.log('No stocks in review queue (need scores ≥ 3)');
-    console.log('Run `stark score --all` or `stark evening` first.');
+    console.log('No unreviewed stocks. Run stark score --all first.');
     return;
   }
 
@@ -69,8 +70,7 @@ export async function reviewCommand(args: string[]): Promise<void> {
     // Show queue
     console.log(`Override Review: ${candidates.length} stocks\n`);
     for (const c of candidates) {
-      const status = c.discretionary_score > 0 ? 'COMPLETE' : 'PARTIAL';
-      console.log(`  ${c.symbol.padEnd(15)} Total: ${c.total_score}/13  Status: ${status}  ${c.name}`);
+      console.log(`  ${c.symbol.padEnd(15)} Total: ${c.total_score}/13  Status: ${c.status}  ${c.name}`);
     }
     console.log(`\nRun: stark review --next  or  stark review --symbol=SYMBOL`);
     return;
@@ -136,7 +136,7 @@ export async function reviewCommand(args: string[]): Promise<void> {
       }
 
       // Recalculate scores with overrides
-      const semiDiscIds = new Set(['linearity', 'not_pivot_cutter', 'aoi', 'hve_hvy', 'hvq_2_5']);
+      const semiDiscIds = new Set(['pattern_quality', 'linearity', 'not_pivot_cutter', 'aoi', 'hve_hvy', 'hvq_2_5']);
       newAlgo = 0;
       newDisc = 0;
       for (const f of allFactors) {
@@ -157,40 +157,74 @@ export async function reviewCommand(args: string[]): Promise<void> {
     console.log(`  Total: ${totalScore} / ${registry.maxScore()}`);
     console.log(`  Overrides: ${overrideCount}`);
 
-    if (overrideCount > 0) {
-      // Update DB with overrides
-      db.execute(
-        `UPDATE stock_scores SET
-           linearity = ?,
-           not_pivot_cutter = ?,
-           aoi = ?,
-           hve_hvy = ?,
-           hvq_2_5 = ?,
-           algorithmic_score = ?,
-           discretionary_score = ?,
-           total_score = ?,
-           override_count = ?,
-           reviewed_at = datetime('now'),
-           updated_at = datetime('now')
-         WHERE id = ?`,
-        [
-          factorUpdates['linearity'] ?? stock.linearity ?? 0,
-          factorUpdates['not_pivot_cutter'] ?? stock.not_pivot_cutter ?? 0,
-          factorUpdates['aoi'] ?? stock.aoi ?? 0,
-          factorUpdates['hve_hvy'] ?? stock.hve_hvy ?? 0,
-          factorUpdates['hvq_2_5'] ?? stock.hvq_2_5 ?? 0,
-          newAlgo,
-          newDisc,
-          totalScore,
-          overrideCount,
-          stock.id,
-        ],
-      );
-      console.log(`  Saved overrides to database.\n`);
-      overrideTotal += overrideCount;
-    } else {
-      console.log(`  No overrides. Score unchanged.\n`);
+    // Always persist review (even with 0 overrides) — sets status=COMPLETE
+    const finalFactors: Record<string, number> = {};
+    for (const f of allFactors) {
+      finalFactors[f.id] = factorUpdates[f.id] ?? f.val ?? 0;
     }
+
+    // Rebuild score_breakdown_json from factor columns
+    const breakdownJson = JSON.stringify({
+      factors: allFactors.map(f => ({
+        factorId: f.id,
+        factorName: f.name,
+        score: finalFactors[f.id],
+        maxScore: 1,
+      })),
+      algorithmicScore: newAlgo,
+      discretionaryScore: newDisc,
+      totalScore,
+      maxPossibleScore: registry.maxScore(),
+    });
+
+    db.execute(
+      `UPDATE stock_scores SET
+         ep_catalyst = ?,
+         sector_strength = ?,
+         high_rs = ?,
+         ipo_recency = ?,
+         thrust_power = ?,
+         pivot_location = ?,
+         pattern_quality = ?,
+         pivot_level_proximity = ?,
+         linearity = ?,
+         not_pivot_cutter = ?,
+         aoi = ?,
+         hve_hvy = ?,
+         hvq_2_5 = ?,
+         algorithmic_score = ?,
+         discretionary_score = ?,
+         total_score = ?,
+         override_count = ?,
+         score_breakdown_json = ?,
+         status = 'COMPLETE',
+         reviewed_at = datetime('now'),
+         updated_at = datetime('now')
+       WHERE id = ?`,
+      [
+        finalFactors['ep_catalyst'],
+        finalFactors['sector_strength'],
+        finalFactors['high_rs'],
+        finalFactors['ipo_recency'],
+        finalFactors['thrust_power'],
+        finalFactors['pivot_location'],
+        finalFactors['pattern_quality'],
+        finalFactors['pivot_level_proximity'],
+        finalFactors['linearity'],
+        finalFactors['not_pivot_cutter'],
+        finalFactors['aoi'],
+        finalFactors['hve_hvy'],
+        finalFactors['hvq_2_5'],
+        newAlgo,
+        newDisc,
+        totalScore,
+        overrideCount,
+        breakdownJson,
+        stock.id,
+      ],
+    );
+    console.log(`  Review saved (status: COMPLETE, overrides: ${overrideCount}).\n`);
+    overrideTotal += overrideCount;
   }
 
   logger.info('workflow', 'review_complete', 'Review complete', {
