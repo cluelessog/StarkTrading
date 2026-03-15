@@ -36,38 +36,52 @@ function generateTOTP(secret: string): string {
 
 export class SessionManager {
   async ensureAuthenticated(config: StarkConfig): Promise<DataProvider> {
-    // Try AngelOne if configured
-    if (config.angelOne?.apiKey && config.angelOne?.clientId) {
-      try {
-        const { AngelOneProvider } = await import('../api/angel-one.js');
-        const provider = new AngelOneProvider(config.angelOne.apiKey);
-
-        // Check if already authenticated
-        if (provider.isAuthenticated()) {
-          return provider;
-        }
-
-        // Generate TOTP if secret available
-        if (config.angelOne.totpSecret) {
-          const totp = generateTOTP(config.angelOne.totpSecret);
-          await provider.authenticate({
-            clientId: config.angelOne.clientId,
-            totp,
-          });
-          return provider;
-        }
-
-        console.warn('[WARN] No TOTP secret configured. Add angelOne.totpSecret to ~/.stark/config.json');
-        console.warn('[WARN] Falling back to MockProvider');
-      } catch (err) {
-        console.warn(`[WARN] AngelOne auth failed: ${(err as Error).message}`);
-        console.warn('[WARN] Falling back to MockProvider');
-      }
+    // Explicit mock mode — must be operator-approved
+    if (process.env.STARK_MOCK === '1') {
+      console.warn('[MOCK MODE] Running with synthetic data. Do NOT use for live trading decisions.');
+      const { MockProvider } = await import('../api/mock-provider.js');
+      return new MockProvider();
     }
 
-    // Fallback to MockProvider
-    const { MockProvider } = await import('../api/mock-provider.js');
-    return new MockProvider();
+    // Require AngelOne config
+    if (!config.angelOne?.apiKey || !config.angelOne?.clientId) {
+      throw new Error(
+        'Broker not configured. Add angelOne.apiKey and angelOne.clientId to ~/.stark/config.json. ' +
+        'To use mock data for development, set STARK_MOCK=1',
+      );
+    }
+
+    const { AngelOneProvider } = await import('../api/angel-one.js');
+    const provider = new AngelOneProvider(config.angelOne.apiKey);
+
+    // Check if already authenticated
+    if (provider.isAuthenticated()) {
+      return provider;
+    }
+
+    // Require TOTP secret
+    if (!config.angelOne.totpSecret) {
+      throw new Error(
+        'No TOTP secret configured. Add angelOne.totpSecret to ~/.stark/config.json. ' +
+        'To use mock data for development, set STARK_MOCK=1',
+      );
+    }
+
+    // Require password
+    if (!config.angelOne.password) {
+      throw new Error(
+        'No password configured. Add angelOne.password to ~/.stark/config.json. ' +
+        'To use mock data for development, set STARK_MOCK=1',
+      );
+    }
+
+    const totp = generateTOTP(config.angelOne.totpSecret);
+    await provider.authenticate({
+      clientcode: config.angelOne.clientId,
+      password: config.angelOne.password,
+      totp,
+    });
+    return provider;
   }
 }
 

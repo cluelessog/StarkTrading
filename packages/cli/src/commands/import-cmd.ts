@@ -79,11 +79,18 @@ export async function importCommand(args: string[]): Promise<void> {
   try {
     const ctx = await createCommandContext();
     instruments = await ctx.provider.getInstrumentMaster('NSE');
-  } catch {
-    console.log('Could not authenticate, using mock provider for mapping');
-    const { MockProvider } = await import('@stark/core/api/mock-provider.js');
-    const mock = new MockProvider();
-    instruments = await mock.getInstrumentMaster('NSE');
+  } catch (err) {
+    if (process.env.STARK_MOCK === '1') {
+      console.warn('[MOCK MODE] Using mock provider for symbol mapping');
+      const { MockProvider } = await import('@stark/core/api/mock-provider.js');
+      const mock = new MockProvider();
+      instruments = await mock.getInstrumentMaster('NSE');
+    } else {
+      throw new Error(
+        `Authentication failed: ${(err as Error).message}. ` +
+        'To use mock data for development, set STARK_MOCK=1',
+      );
+    }
   }
 
   const { mapped, unmapped } = mapSymbols(rawSymbols, instruments);

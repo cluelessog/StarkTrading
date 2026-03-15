@@ -44,6 +44,7 @@ export interface ScoringConfig {
 export interface AngelOneConfig {
   apiKey?: string;
   clientId?: string;
+  password?: string;
   totpSecret?: string;
 }
 
