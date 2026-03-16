@@ -3,6 +3,7 @@ import { MBIDataManager } from '@stark/core/mbi/data-manager.js';
 import { generateFocusList } from '@stark/core/mbi/focus-list.js';
 import { createDefaultRegistry } from '@stark/core/scoring/registry.js';
 import { loadConfig } from '@stark/core/config/index.js';
+import { ChartinkClient } from '@stark/core/api/chartink.js';
 
 export async function focusCommand(args: string[]): Promise<void> {
   const includePartial = args.includes('--include-unreviewed');
@@ -10,9 +11,16 @@ export async function focusCommand(args: string[]): Promise<void> {
   const { db } = createDatabase();
   const registry = createDefaultRegistry();
 
+  const chartinkClient = config.chartink?.enabled !== false && config.chartink
+    ? new ChartinkClient({
+        dashboardId: config.chartink.dashboardId ?? '291317',
+        timeoutMs: config.chartink.timeoutMs ?? 10000,
+      })
+    : undefined;
+
   const manager = new MBIDataManager(db, {
     sheetId: config.sheetId,
-  });
+  }, undefined, chartinkClient);
 
   let regime;
   try {

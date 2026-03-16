@@ -8,6 +8,7 @@ import { logger } from '@stark/core/log/index.js';
 import { MBIDataManager } from '@stark/core/mbi/data-manager.js';
 import { getNifty50Constituents } from '@stark/core/market/nifty-constituents.js';
 import { BreadthCalculator } from '@stark/core/market/breadth-calculator.js';
+import { ChartinkClient } from '@stark/core/api/chartink.js';
 import type { StarkConfig } from '@stark/core/config/index.js';
 import type { DatabaseAdapter } from '@stark/core/db/adapter.js';
 import type { Queries } from '@stark/core/db/queries.js';
@@ -60,10 +61,19 @@ export async function createCommandContext(): Promise<CommandContext> {
     universe: 'NIFTY50',
     nifty50Constituents: nifty50,
   });
+  // Chartink client (optional secondary fallback for MBI)
+  const chartinkClient = config.chartink?.enabled !== false && config.chartink
+    ? new ChartinkClient({
+        dashboardId: config.chartink.dashboardId ?? '291317',
+        timeoutMs: config.chartink.timeoutMs ?? 10000,
+      })
+    : undefined;
+
   const mbiManager = new MBIDataManager(
     db,
     { sheetId: config.sheetId },
     breadthCalc,
+    chartinkClient,
   );
 
   return { config, db, queries, provider, llmService, engine, logger, mbiManager };
@@ -93,7 +103,14 @@ export async function createPersistentCommandContext(): Promise<PersistentComman
     universe: 'NIFTY50',
     nifty50Constituents: nifty50,
   });
-  let mbiManager = new MBIDataManager(db, { sheetId: config.sheetId }, breadthCalc);
+  const chartinkClient = config.chartink?.enabled !== false && config.chartink
+    ? new ChartinkClient({
+        dashboardId: config.chartink.dashboardId ?? '291317',
+        timeoutMs: config.chartink.timeoutMs ?? 10000,
+      })
+    : undefined;
+
+  let mbiManager = new MBIDataManager(db, { sheetId: config.sheetId }, breadthCalc, chartinkClient);
 
   let disposed = false;
 
@@ -122,7 +139,7 @@ export async function createPersistentCommandContext(): Promise<PersistentComman
           universe: 'NIFTY50',
           nifty50Constituents: nifty50,
         });
-        mbiManager = new MBIDataManager(db, { sheetId: config.sheetId }, breadthCalc);
+        mbiManager = new MBIDataManager(db, { sheetId: config.sheetId }, breadthCalc, chartinkClient);
         // Update the context references
         (this as PersistentCommandContext).provider = provider;
         (this as PersistentCommandContext).engine = engine;
