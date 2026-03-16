@@ -6,17 +6,18 @@
 ## Quick Summary
 
 - **Project**: SteveTrading
-- **Phase**: maintenance
+- **Phase**: active development
 - **Health**: 🟢 on-track
-- **Last activity**: 2026-03-15
-- **Tests**: 307 pass, 0 fail (34 test files)
+- **Last activity**: 2026-03-16
+- **Tests**: 316 pass, 0 fail (35 test files)
 
 ## In Progress
 
-None — all planned sprints and audit fixes complete.
+None
 
 ## Completed (Recent)
 
+- Chartink scraper: implemented as secondary MBI fallback (9 new tests)
 - Code audit fixes: 9 findings (1 CRITICAL, 5 HIGH, 3 MEDIUM) across 5 phases
 - Sprint 5: Advanced performance analytics, NLU conviction, Telegram polish
 - Sprint 4: Telegram bot, TradingScheduler, portfolio sync, DB v2
@@ -41,6 +42,14 @@ None
 ---
 
 ## Activity Log
+
+### [2026-03-16 14:00] — Chartink scraper implemented
+- **Type**: feature
+- **Status**: completed
+- **Files changed**: packages/core/src/api/chartink.ts, packages/core/src/config/index.ts, packages/cli/src/utils/command-context.ts, packages/cli/src/commands/focus.ts, packages/core/tests/chartink.test.ts
+- **What was done**: Implemented ChartinkClient that scrapes chartink.com/screener/process with scan_clause queries. Fetches CSRF token + session cookies, runs 6 scans (above 200/50/20 SMA, 52w high/low, total NSE count), computes breadth percentages. Added ChartinkConfigOptions to StarkConfig. Wired into MBIDataManager as secondary fallback in all command contexts. 9 new tests.
+- **What's next**: Merge to master after review. Consider live testing against Chartink.
+- **Blockers**: none
 
 ### [2026-03-15 18:00] — Code audit Phase 5 complete, all phases merged
 - **Type**: fix

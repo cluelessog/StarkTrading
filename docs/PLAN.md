@@ -55,12 +55,12 @@ maintenance — all planned sprints complete, system production-ready
 | 8 | Telegram bot + scheduler + portfolio sync | completed |
 | 9 | Advanced performance analytics | completed |
 | 10 | Code audit fixes (9 findings, 5 phases) | completed |
+| 11 | Chartink scraper (secondary MBI fallback) | completed |
 
 ## Backlog (Not Yet Planned)
 
 | Item | Notes |
 |------|-------|
-| Chartink Scraper (unstub) | Live MBI data; currently using Google Sheet fallback |
 | Intraday Trading | Seams ready from Sprint 3, needs design plan |
 | Credential Encryption | OS keychain for API keys, TOTP secret |
 | RPi Deployment | Deploy Telegram bot + scheduler (docs in `docs/stark-rpi-telegram.md`) |
@@ -69,7 +69,7 @@ maintenance — all planned sprints complete, system production-ready
 
 ## Open Questions
 
-- Chartink scraping feasibility (rate limits, page structure stability)
+- Chartink rate limits in production (sequential scans with ~6 requests per call; may need delay between scans)
 - NTFS requirement for bun:sqlite tests (source on exFAT, tests on NTFS) — workflow friction
 
 ## Dependencies

@@ -68,6 +68,12 @@ export interface SchedulerConfig {
   syncIntervalMinutes?: number;
 }
 
+export interface ChartinkConfigOptions {
+  dashboardId?: string;  // default: '291317'
+  timeoutMs?: number;    // default: 10000
+  enabled?: boolean;     // default: true when present
+}
+
 // TODO(intraday-seam-3): StarkModelConfig in models/config.ts has mbi.refreshInterval.
 // When migrating to StarkModelConfig as the runtime type, ensure refreshInterval is preserved.
 export interface StarkConfig {
@@ -75,6 +81,7 @@ export interface StarkConfig {
   llm?: LLMConfig;
   telegram?: TelegramConfig;
   scheduler?: SchedulerConfig;
+  chartink?: ChartinkConfigOptions;
   emThresholds: EMThresholdsConfig;
   risk: RiskConfig;
   sheetId: string;
