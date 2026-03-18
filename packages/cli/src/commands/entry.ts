@@ -1,9 +1,9 @@
 import { Database } from 'bun:sqlite';
 import { join } from 'path';
 import { getStarkDir, loadConfig } from '@stark/core';
-import { MIGRATIONS } from '@stark/core/src/db/schema.js';
-import { TradeManager } from '@stark/core/src/journal/trade-manager.js';
-import { calculatePortfolioHeat } from '@stark/core/src/journal/portfolio-heat.js';
+import { MIGRATIONS } from '@stark/core/db/schema.js';
+import { TradeManager } from '@stark/core/journal/trade-manager.js';
+import { calculatePortfolioHeat } from '@stark/core/journal/portfolio-heat.js';
 
 function createAdapter(dbPath: string) {
   const db = new Database(dbPath);

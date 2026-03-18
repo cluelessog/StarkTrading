@@ -1,8 +1,8 @@
 import { Database } from 'bun:sqlite';
 import { join } from 'path';
 import { getStarkDir } from '@stark/core';
-import { MIGRATIONS } from '@stark/core/src/db/schema.js';
-import { generatePerformanceReport, type BreakdownEntry } from '@stark/core/src/journal/performance.js';
+import { MIGRATIONS } from '@stark/core/db/schema.js';
+import { generatePerformanceReport, type BreakdownEntry } from '@stark/core/journal/performance.js';
 
 function createAdapter(dbPath: string) {
   const db = new Database(dbPath);
