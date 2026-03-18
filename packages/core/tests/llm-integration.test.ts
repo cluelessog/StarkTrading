@@ -1,15 +1,37 @@
 import { describe, it, expect, mock } from 'bun:test';
+import { Database } from 'bun:sqlite';
 import { ScoringEngine } from '../src/scoring/engine.js';
 import { MockProvider } from '../src/api/mock-provider.js';
 import { createScoringContext } from '../src/scoring/context.js';
-import { BunSQLiteAdapter } from '../src/db/adapter.js';
-import { runMigrations } from '../src/db/migrations.js';
+import { MIGRATIONS } from '../src/db/schema.js';
+import type { DatabaseAdapter } from '../src/db/adapter.js';
 import type { LLMService } from '../src/llm/index.js';
 
-function createTestAdapter() {
-  const db = new BunSQLiteAdapter(':memory:');
-  runMigrations(db);
-  return db;
+function createTestAdapter(): DatabaseAdapter {
+  const db = new Database(':memory:');
+  for (const migration of MIGRATIONS) {
+    db.exec(migration.sql);
+  }
+  return {
+    execute(sql: string, params: any[] = []) {
+      db.prepare(sql).run(...params);
+    },
+    execMulti(sql: string) {
+      db.exec(sql);
+    },
+    query<T>(sql: string, params: any[] = []): T[] {
+      return db.prepare(sql).all(...params) as T[];
+    },
+    queryOne<T>(sql: string, params: any[] = []): T | null {
+      return (db.prepare(sql).get(...params) as T | undefined) ?? null;
+    },
+    transaction<T>(fn: () => T): T {
+      return db.transaction(fn)() as T;
+    },
+    close() {
+      db.close();
+    },
+  };
 }
 
 function createMockLLMService(): LLMService {
@@ -29,8 +51,10 @@ function createMockLLMService(): LLMService {
         cached: false,
       }),
     ),
+    complete: async () => '',
     canAnalyze: () => true,
     canResearch: () => true,
+    canComplete: () => false,
     getAnalysisProvider: () => 'claude',
   };
 }
@@ -124,8 +148,10 @@ describe('ScoringEngine integration', () => {
     const failingLLM: LLMService = {
       analyzeOHLCV: mock(() => Promise.reject(new Error('LLM API down'))),
       research: mock(() => Promise.reject(new Error('LLM API down'))),
+      complete: async () => '',
       canAnalyze: () => true,
       canResearch: () => true,
+      canComplete: () => false,
       getAnalysisProvider: () => 'claude',
     };
     const engine = new ScoringEngine(provider, db, undefined, failingLLM);

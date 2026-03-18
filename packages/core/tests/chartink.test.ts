@@ -115,7 +115,7 @@ describe('ChartinkClient', () => {
       high52W: 150,
       low52W: 50,
       totalNSE: 1000,
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     const result = await client.fetchBreadthData();
@@ -133,7 +133,7 @@ describe('ChartinkClient', () => {
     globalThis.fetch = createMockFetch({
       above200SMA: 600,
       totalNSE: 1000,
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     const result = await client.fetchBreadthData();
@@ -145,7 +145,7 @@ describe('ChartinkClient', () => {
   it('throws when total NSE count is 0', async () => {
     globalThis.fetch = createMockFetch({
       totalNSE: 0,
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     await expect(client.fetchBreadthData()).rejects.toThrow(
@@ -159,7 +159,7 @@ describe('ChartinkClient', () => {
         status: 200,
         headers: { 'Content-Type': 'text/html' },
       });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     await expect(client.fetchBreadthData()).rejects.toThrow(
@@ -170,7 +170,7 @@ describe('ChartinkClient', () => {
   it('throws when session init returns non-200', async () => {
     globalThis.fetch = (async () => {
       return new Response('Service Unavailable', { status: 503 });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     await expect(client.fetchBreadthData()).rejects.toThrow(
@@ -193,7 +193,7 @@ describe('ChartinkClient', () => {
       // First POST fails
       callCount++;
       return new Response('Rate limited', { status: 429 });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     await expect(client.fetchBreadthData()).rejects.toThrow('Chartink scan HTTP 429');
@@ -207,7 +207,7 @@ describe('ChartinkClient', () => {
       high52W: 120,
       low52W: 80,
       totalNSE: 1200,
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     const result = await client.fetchBreadthData();
@@ -225,7 +225,7 @@ describe('ChartinkClient', () => {
     globalThis.fetch = createMockFetch({
       above200SMA: 1000,
       totalNSE: 1000,
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     const result = await client.fetchBreadthData();
@@ -248,7 +248,7 @@ describe('ChartinkClient integration with MBIDataManager mock', () => {
   });
 
   it('returns data compatible with ChartinkBreadthData interface', async () => {
-    globalThis.fetch = createMockFetch({}) as typeof fetch;
+    globalThis.fetch = createMockFetch({}) as unknown as typeof fetch;
 
     const client = new ChartinkClient(DEFAULT_CONFIG);
     const result = await client.fetchBreadthData();

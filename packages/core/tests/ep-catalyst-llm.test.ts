@@ -11,7 +11,6 @@ import type { LLMService } from '../src/llm/index.js';
 function makeBar(date: string, open: number, close: number, volume = 100000): OHLCVBar {
   return {
     timestamp: date,
-    date,
     open,
     high: Math.max(open, close) + 1,
     low: Math.min(open, close) - 1,
@@ -26,7 +25,7 @@ function makeInput(dailyBars: OHLCVBar[], llmService?: LLMService): FactorInput 
     token: '2885',
     dailyBars,
     provider: {} as FactorInput['provider'],
-    context: { sessionId: 'test', startTime: Date.now(), symbols: ['RELIANCE'], errors: [], completedSymbols: 0, totalSymbols: 1 },
+    context: { sessionId: 'test', startedAt: Date.now(), symbols: ['RELIANCE'], apiCalls: {}, cacheHits: 0, cacheMisses: 0, llmCalls: 0, errors: [], degradedFactors: [] },
     llmService,
   };
 }
@@ -47,8 +46,10 @@ function mockLLMService(researchAnswer: string): LLMService {
   return {
     analyzeOHLCV: mock(() => Promise.resolve({ score: 0, reasoning: '', confidence: 0, cached: false })),
     research: mock(() => Promise.resolve({ answer: researchAnswer, sources: [], cached: false })),
+    complete: async () => '',
     canAnalyze: () => true,
     canResearch: () => true,
+    canComplete: () => false,
     getAnalysisProvider: () => 'claude',
   };
 }
@@ -97,8 +98,10 @@ describe('epCatalyst LLM-enhanced', () => {
     const llm: LLMService = {
       analyzeOHLCV: mock(() => Promise.reject(new Error('API error'))),
       research: mock(() => Promise.reject(new Error('API error'))),
+      complete: async () => '',
       canAnalyze: () => true,
       canResearch: () => true,
+      canComplete: () => false,
       getAnalysisProvider: () => 'claude',
     };
     const result = await epCatalyst(makeInput(bars, llm));

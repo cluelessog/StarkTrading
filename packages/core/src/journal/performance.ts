@@ -272,7 +272,7 @@ export function generateAdvancedStats(closedTrades: TradeJournalEntry[]): Advanc
   // --- Profit Factor ---
   const grossWins = trades.filter(t => (t.pnl ?? 0) > 0).reduce((s, t) => s + (t.pnl ?? 0), 0);
   const grossLossAbs = Math.abs(trades.filter(t => (t.pnl ?? 0) <= 0).reduce((s, t) => s + (t.pnl ?? 0), 0));
-  let profitFactor: number;
+  let profitFactor: number | null;
   if (grossLossAbs === 0) {
     profitFactor = grossWins > 0 ? null : 0;
   } else {
