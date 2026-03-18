@@ -141,7 +141,7 @@ describe('SessionManager', () => {
     // Mock fetch to capture the authenticate() payload
     let capturedBody: Record<string, string> | null = null;
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (url: string | URL | Request, init?: RequestInit) => {
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       const urlStr = typeof url === 'string' ? url : url.toString();
       if (urlStr.includes('loginByPassword') && init?.body) {
         capturedBody = JSON.parse(init.body as string);
@@ -149,7 +149,7 @@ describe('SessionManager', () => {
       return new Response(JSON.stringify({ status: true, data: {
         jwtToken: 'fake-jwt', refreshToken: 'fake-refresh', feedToken: 'fake-feed',
       }}), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    };
+    }) as unknown as typeof fetch;
 
     try {
       const manager = new SessionManager();

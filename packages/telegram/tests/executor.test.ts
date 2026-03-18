@@ -47,7 +47,9 @@ function makeMockCtx(): PersistentCommandContext {
     },
     db: mockDb,
     queries: mockQueries,
-    provider: {},
+    provider: {
+      searchSymbol: async (query: string) => [{ symbol: query.toUpperCase(), token: '1234', name: query, exchange: 'NSE' }],
+    },
     llmService: null,
     engine: {
       scoreSymbol: async (symbol: string) => ({
@@ -79,7 +81,7 @@ describe('Executor (createToolRegistry)', () => {
     const registry = createToolRegistry(ctx);
     const help = registry.get('help')!;
     const result = await help.execute({});
-    expect(result.data).toBeArray();
+    expect(Array.isArray(result.data)).toBe(true);
     expect((result.data as string[]).length).toBe(18);
     expect(result.summary).toContain('score');
     expect(result.summary).toContain('help');
@@ -145,7 +147,7 @@ describe('Executor (createToolRegistry)', () => {
     const logs = registry.get('logs')!;
     const result = await logs.execute({});
     expect(result.summary).toContain('1');
-    expect(result.data).toBeArray();
+    expect(Array.isArray(result.data)).toBe(true);
   });
 
   it('evolve tool shows daily average scores', async () => {

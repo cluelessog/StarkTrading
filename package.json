@@ -9,7 +9,7 @@
     "build": "bun run --filter='*' build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint .",
+    "lint": "bunx eslint .",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

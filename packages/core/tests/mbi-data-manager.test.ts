@@ -18,16 +18,16 @@ function createInMemoryAdapter(): DatabaseAdapter {
     db.exec(migration.sql);
   }
   return {
-    execute(sql: string, params: unknown[] = []) {
+    execute(sql: string, params: any[] = []) {
       db.prepare(sql).run(...params);
     },
     execMulti(sql: string) {
       db.exec(sql);
     },
-    query<T>(sql: string, params: unknown[] = []): T[] {
+    query<T>(sql: string, params: any[] = []): T[] {
       return db.prepare(sql).all(...params) as T[];
     },
-    queryOne<T>(sql: string, params: unknown[] = []): T | null {
+    queryOne<T>(sql: string, params: any[] = []): T | null {
       return (db.prepare(sql).get(...params) as T | undefined) ?? null;
     },
     transaction<T>(fn: () => T): T {
@@ -123,7 +123,7 @@ describe('MBIDataManager fallback chain', () => {
 
     // Sheet will fail (mock fetch)
     globalThis.fetch = (() =>
-      Promise.reject(new Error('Network error'))) as typeof fetch;
+      Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
 
     try {
       const manager = new MBIDataManager(
@@ -145,7 +145,7 @@ describe('MBIDataManager fallback chain', () => {
   it('uses breadth_only when sheet and chartink fail but breadth calculator is warm', async () => {
     // Sheet will fail
     globalThis.fetch = (() =>
-      Promise.reject(new Error('Network error'))) as typeof fetch;
+      Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
 
     try {
       const breadthCalc = createMockBreadthCalculator({
@@ -188,7 +188,7 @@ describe('MBIDataManager fallback chain', () => {
 
     // Sheet will fail
     globalThis.fetch = (() =>
-      Promise.reject(new Error('Network error'))) as typeof fetch;
+      Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
 
     try {
       const breadthCalc = createMockBreadthCalculator({ warm: false });
@@ -211,7 +211,7 @@ describe('MBIDataManager fallback chain', () => {
   it('stores fetched MBI data in the database', async () => {
     // Sheet will fail, breadth_only will succeed
     globalThis.fetch = (() =>
-      Promise.reject(new Error('Network error'))) as typeof fetch;
+      Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
 
     try {
       const breadthCalc = createMockBreadthCalculator({
@@ -257,7 +257,7 @@ describe('MBIDataManager fallback chain', () => {
     globalThis.fetch = (() => {
       fetchCalled = true;
       return Promise.reject(new Error('Should not be called'));
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     try {
       const manager = new MBIDataManager(db, DUMMY_SHEET_CONFIG);
@@ -272,7 +272,7 @@ describe('MBIDataManager fallback chain', () => {
 
   it('throws AggregateError when all fallbacks fail and no cache exists', async () => {
     globalThis.fetch = (() =>
-      Promise.reject(new Error('Network error'))) as typeof fetch;
+      Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
 
     try {
       const manager = new MBIDataManager(db, DUMMY_SHEET_CONFIG);
@@ -300,7 +300,7 @@ describe('MBIDataManager fallback chain', () => {
 
     // Sheet fails, breadth_only succeeds
     globalThis.fetch = (() =>
-      Promise.reject(new Error('Network error'))) as typeof fetch;
+      Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
 
     try {
       const breadthCalc = createMockBreadthCalculator({

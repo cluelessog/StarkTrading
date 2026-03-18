@@ -23,7 +23,6 @@ function makeBar(
 ): OHLCVBar {
   return {
     timestamp: date,
-    date,
     open,
     high,
     low,
@@ -94,7 +93,7 @@ function makeInput(dailyBars: OHLCVBar[], llmService?: LLMService): FactorInput 
     token: '1234',
     dailyBars,
     provider: {} as FactorInput['provider'],
-    context: { sessionId: 'test', startTime: Date.now(), symbols: ['TEST'], errors: [], completedSymbols: 0, totalSymbols: 1 },
+    context: { sessionId: 'test', startedAt: Date.now(), symbols: ['TEST'], apiCalls: {}, cacheHits: 0, cacheMisses: 0, llmCalls: 0, errors: [], degradedFactors: [] },
     llmService,
   };
 }

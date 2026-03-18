@@ -20,16 +20,16 @@ function createInMemoryAdapter(): DatabaseAdapter {
     db.exec(migration.sql);
   }
   return {
-    execute(sql: string, params: unknown[] = []) {
+    execute(sql: string, params: any[] = []) {
       db.prepare(sql).run(...params);
     },
     execMulti(sql: string) {
       db.exec(sql);
     },
-    query<T>(sql: string, params: unknown[] = []): T[] {
+    query<T>(sql: string, params: any[] = []): T[] {
       return db.prepare(sql).all(...params) as T[];
     },
-    queryOne<T>(sql: string, params: unknown[] = []): T | null {
+    queryOne<T>(sql: string, params: any[] = []): T | null {
       return (db.prepare(sql).get(...params) as T | undefined) ?? null;
     },
     transaction<T>(fn: () => T): T {
@@ -69,6 +69,7 @@ function createMockProvider(barsMap: Map<string, OHLCVBar[]>): DataProvider {
       return { symbol: '', token: '', ltp: 0, open: 0, high: 0, low: 0, close: 0, volume: 0, timestamp: '' };
     },
     async fetchQuotes() { return []; },
+    async fetchPositions() { return []; },
     async searchSymbol() { return []; },
     async getInstrumentMaster() { return []; },
   };

@@ -11,7 +11,7 @@ describe('scrapeWatchlistUrl', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const result = await scrapeWatchlistUrl('https://example.com/watchlist');
@@ -33,7 +33,7 @@ describe('scrapeWatchlistUrl', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const result = await scrapeWatchlistUrl('https://example.com/watchlist');
@@ -53,7 +53,7 @@ describe('scrapeWatchlistUrl', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const result = await scrapeWatchlistUrl('https://example.com/watchlist');
@@ -70,7 +70,7 @@ describe('scrapeWatchlistUrl', () => {
       Promise.resolve(
         new Response('<div>No symbols here</div>', { status: 200 }),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const result = await scrapeWatchlistUrl('https://example.com/empty');
@@ -85,7 +85,7 @@ describe('scrapeWatchlistUrl', () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = mock(() =>
       Promise.reject(new Error('Network error')),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       await expect(
@@ -105,7 +105,7 @@ describe('scrapeWatchlistUrl', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const result = await scrapeWatchlistUrl('https://example.com/dupe');

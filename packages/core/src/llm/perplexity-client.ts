@@ -56,8 +56,8 @@ export class PerplexityClient {
       throw new Error(`Perplexity API error (${response.status}): ${errorText}`);
     }
 
-    const json = await response.json();
-    const answer = json?.choices?.[0]?.message?.content ?? '';
+    const json: any = await response.json();
+    const answer: string = json?.choices?.[0]?.message?.content ?? '';
     const sources: string[] = json?.citations ?? [];
 
     const result = { answer, sources };

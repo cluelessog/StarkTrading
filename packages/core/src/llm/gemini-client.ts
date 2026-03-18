@@ -66,8 +66,8 @@ export class GeminiClient {
       throw new Error(`Gemini API error (${response.status}): ${errorText}`);
     }
 
-    const json = await response.json();
-    const text =
+    const json: any = await response.json();
+    const text: string =
       json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
 
     let result: { score: number; reasoning: string; confidence: number };

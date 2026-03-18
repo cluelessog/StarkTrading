@@ -77,8 +77,8 @@ export async function entryCommand(args: string[]): Promise<void> {
     console.log(`\nTrade entered: ${result.symbol}`);
     console.log(`  Entry: Rs ${result.entryPrice.toLocaleString('en-IN')}`);
     console.log(`  Shares: ${result.shares}`);
-    console.log(`  Stop: Rs ${result.stopPrice.toLocaleString('en-IN')}`);
-    console.log(`  Risk: Rs ${result.riskAmount.toLocaleString('en-IN')}`);
+    console.log(`  Stop: Rs ${result.stopPrice?.toLocaleString('en-IN') ?? 'N/A'}`);
+    console.log(`  Risk: Rs ${result.riskAmount?.toLocaleString('en-IN') ?? 'N/A'}`);
     console.log(`  Conviction: ${result.conviction}`);
     if (result.scoreAtEntry != null) {
       console.log(`  Score at entry: ${result.scoreAtEntry}`);

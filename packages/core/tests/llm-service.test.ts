@@ -127,7 +127,7 @@ describe('GeminiClient', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const client = new GeminiClient('test-key', cache);
@@ -169,7 +169,7 @@ describe('GeminiClient', () => {
           { status: 200 },
         ),
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     try {
       const client = new GeminiClient('test-key', cache);
@@ -188,7 +188,7 @@ describe('GeminiClient', () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response('Internal Server Error', { status: 500 })),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const client = new GeminiClient('test-key', cache);
@@ -230,7 +230,7 @@ describe('PerplexityClient', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const client = new PerplexityClient('test-key', cache);
@@ -258,7 +258,7 @@ describe('PerplexityClient', () => {
           { status: 200 },
         ),
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     try {
       const client = new PerplexityClient('test-key', cache);
@@ -276,7 +276,7 @@ describe('PerplexityClient', () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response('Unauthorized', { status: 401 })),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const client = new PerplexityClient('test-key', cache);
@@ -465,7 +465,7 @@ describe('LLMServiceImpl', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const db = createMockDb();
@@ -502,7 +502,7 @@ describe('LLMServiceImpl', () => {
           { status: 200 },
         ),
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     try {
       const db = createMockDb();

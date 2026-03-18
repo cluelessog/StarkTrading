@@ -75,7 +75,7 @@ describe('ClaudeClient', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const client = new ClaudeClient('test-key', cache);
@@ -113,7 +113,7 @@ describe('ClaudeClient', () => {
           { status: 200 },
         ),
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     try {
       const client = new ClaudeClient('test-key', cache);
@@ -133,7 +133,7 @@ describe('ClaudeClient', () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response('Unauthorized', { status: 401 })),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const client = new ClaudeClient('test-key', cache);
@@ -154,7 +154,7 @@ describe('ClaudeClient', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const client = new ClaudeClient('test-key', cache);
@@ -185,7 +185,7 @@ describe('ClaudeClient', () => {
           { status: 200 },
         ),
       ),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     try {
       const client = new ClaudeClient('test-key', cache);

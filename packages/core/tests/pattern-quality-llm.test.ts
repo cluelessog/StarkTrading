@@ -9,7 +9,7 @@ import type { LLMService } from '../src/llm/index.js';
 // ---------------------------------------------------------------------------
 
 function makeBar(date: string, open: number, high: number, low: number, close: number, volume = 100000): OHLCVBar {
-  return { timestamp: date, date, open, high, low, close, volume };
+  return { timestamp: date, open, high, low, close, volume };
 }
 
 function makeInput(dailyBars: OHLCVBar[], llmService?: LLMService): FactorInput {
@@ -18,7 +18,7 @@ function makeInput(dailyBars: OHLCVBar[], llmService?: LLMService): FactorInput 
     token: '1234',
     dailyBars,
     provider: {} as FactorInput['provider'],
-    context: { sessionId: 'test', startTime: Date.now(), symbols: ['TEST'], errors: [], completedSymbols: 0, totalSymbols: 1 },
+    context: { sessionId: 'test', startedAt: Date.now(), symbols: ['TEST'], apiCalls: {}, cacheHits: 0, cacheMisses: 0, llmCalls: 0, errors: [], degradedFactors: [] },
     llmService,
   };
 }
@@ -105,14 +105,16 @@ describe('patternQuality LLM-enhanced', () => {
         Promise.resolve({ score: 1, reasoning: 'Valid VCP pattern confirmed', confidence: 0.9, cached: false }),
       ),
       research: mock(() => Promise.resolve({ answer: '', sources: [], cached: false })),
+      complete: async () => '',
       canAnalyze: () => true,
       canResearch: () => false,
+      canComplete: () => false,
       getAnalysisProvider: () => 'claude',
     };
 
     const result = await patternQuality(makeInput(bars, llm));
     // If algorithmic detects partial VCP (0.5), LLM should upgrade to 1.0
-    if (result.metadata?.contractionCount && result.metadata.contractionCount >= 2) {
+    if (result.metadata?.contractionCount && (result.metadata.contractionCount as number) >= 2) {
       expect(result.score).toBe(1.0);
       expect(result.dataSource).not.toBe('ohlcv_cache');
     }
@@ -123,8 +125,10 @@ describe('patternQuality LLM-enhanced', () => {
     const llm: LLMService = {
       analyzeOHLCV: mock(() => Promise.reject(new Error('API error'))),
       research: mock(() => Promise.resolve({ answer: '', sources: [], cached: false })),
+      complete: async () => '',
       canAnalyze: () => true,
       canResearch: () => false,
+      canComplete: () => false,
       getAnalysisProvider: () => 'claude',
     };
 
