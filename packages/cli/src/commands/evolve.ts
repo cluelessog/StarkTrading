@@ -36,9 +36,6 @@ export async function evolveCommand(args: string[]): Promise<void> {
 
     if (!report.sufficientData) {
       console.log(`\n  Need ${report.minTradesNeeded} more closed trades for evolution analysis.`);
-      for (const r of report.recommendations) {
-        console.log(`  ${r}`);
-      }
       return;
     }
 
