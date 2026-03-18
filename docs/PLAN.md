@@ -56,6 +56,7 @@ maintenance — all planned sprints complete, system production-ready
 | 9 | Advanced performance analytics | completed |
 | 10 | Code audit fixes (9 findings, 5 phases) | completed |
 | 11 | Chartink scraper (secondary MBI fallback) | completed |
+| 12 | Natural language CLI (NLU layer + chat REPL) | completed |
 
 ## Backlog (Not Yet Planned)
 

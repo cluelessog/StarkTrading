@@ -15,3 +15,4 @@ export * from './api/index.js';
 export * from './scoring/index.js';
 export * from './mbi/index.js';
 export * from './journal/index.js';
+export * from './nlu/index.js';

@@ -8,8 +8,8 @@
 - **Project**: SteveTrading
 - **Phase**: active development
 - **Health**: 🟢 on-track
-- **Last activity**: 2026-03-16
-- **Tests**: 316 pass, 0 fail (35 test files)
+- **Last activity**: 2026-03-18
+- **Tests**: 359 pass, 0 fail (39 test files)
 
 ## In Progress
 
@@ -17,6 +17,7 @@ None
 
 ## Completed (Recent)
 
+- Natural language CLI: NLU layer over CLI with `stark chat` REPL and single-shot mode
 - Chartink scraper: implemented as secondary MBI fallback (9 new tests)
 - Code audit fixes: 9 findings (1 CRITICAL, 5 HIGH, 3 MEDIUM) across 5 phases
 - Sprint 5: Advanced performance analytics, NLU conviction, Telegram polish
@@ -42,6 +43,14 @@ None
 ---
 
 ## Activity Log
+
+### [2026-03-18 09:45] — Natural language CLI layer
+- **Type**: feature
+- **Status**: completed
+- **Files changed**: packages/core/src/nlu/ (new), packages/cli/src/nlu/ (new), packages/cli/src/commands/chat.ts (new), packages/cli/bin/stark.ts, packages/telegram/src/nlu.ts, packages/telegram/src/tool-registry.ts, packages/telegram/src/executor.ts
+- **What was done**: Extracted NLU + ToolRegistry from Telegram to @stark/core/nlu/ as shared module. Added fuzzy-match phase (Levenshtein + natural language aliases) between regex and LLM. Created CLI tool registry with 17 tools. Added NLU fallback to CLI router for unrecognized commands. Added `stark chat` interactive REPL with session history and pronoun resolution. Fixed CLI import paths (@stark/core/src/ → @stark/core/).
+- **What's next**: QA Phase 3 (live API testing), RPi deployment
+- **Blockers**: none
 
 ### [2026-03-16 14:00] — Chartink scraper implemented
 - **Type**: feature

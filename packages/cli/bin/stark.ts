@@ -26,6 +26,7 @@ const COMMANDS = [
   { name: "logs",        description: "View and filter application logs" },
   { name: "mbi-analyze", description: "Analyze MBI-score correlation and regime history" },
   { name: "sync",        description: "Sync broker positions with trade journal" },
+  { name: "chat",        description: "Interactive natural language chat mode" },
 ];
 
 function printHelp(): void {
@@ -85,9 +86,10 @@ async function main(): Promise<void> {
   const known = COMMANDS.find((c) => c.name === command);
 
   if (!known) {
-    console.error(`Error: Unknown command "${command}"`);
-    console.error(`Run \`stark --help\` to see available commands.`);
-    process.exit(1);
+    // Treat unrecognized input as natural language
+    const { handleNaturalLanguage } = await import("../src/nlu/cli-nlu.js");
+    await handleNaturalLanguage(args.join(' '));
+    process.exit(0);
   }
 
   switch (command) {
@@ -189,6 +191,11 @@ async function main(): Promise<void> {
     case "cron": {
       const { cronStartCommand } = await import("../src/commands/cron-start.js");
       await cronStartCommand(commandArgs);
+      break;
+    }
+    case "chat": {
+      const { chatCommand } = await import("../src/commands/chat.js");
+      await chatCommand(commandArgs);
       break;
     }
     default:

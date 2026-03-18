@@ -4,7 +4,7 @@ import { TradeManager } from '@stark/core/journal/trade-manager.js';
 import { generateAdvancedStats } from '@stark/core/journal/performance.js';
 import { generateFocusList } from '@stark/core/mbi/focus-list.js';
 import type { MBIRegime } from '@stark/core/models/market.js';
-import { ToolRegistry, type ToolResult } from './tool-registry.js';
+import { ToolRegistry, type ToolResult } from '@stark/core/nlu/tool-registry.js';
 
 export function createToolRegistry(ctx: PersistentCommandContext): ToolRegistry {
   const registry = new ToolRegistry();
