@@ -185,7 +185,8 @@ export class NLU {
     const words = lower.split(/\s+/);
     for (const word of words) {
       for (const cmd of commandNames) {
-        if (this.levenshtein(word, cmd) <= 1 && word.length >= 3) {
+        const maxDist = word.length >= 5 ? 2 : 1;
+        if (this.levenshtein(word, cmd) <= maxDist && word.length >= 3) {
           return { command: cmd, args: {}, confidence: 0.7 };
         }
       }
